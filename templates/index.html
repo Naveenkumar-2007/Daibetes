@@ -18,24 +18,54 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <!-- Navbar -->
+    <!-- Mobile-Optimized Navbar -->
     <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <div class="nav-brand" style="flex-shrink: 0;">
                 <i class="fas fa-hospital-symbol"></i>
-                <span>Diabetes Health Predictor</span>
+                <span style="display: none;">Diabetes Health Predictor</span>
+                <span style="display: inline;">DiabetesCare</span>
             </div>
-            <div class="nav-subtitle">Advanced Diabetes Assessment & Diagnostic Center</div>
-            <div style="display: flex; gap: 15px; align-items: center;">
-                <a href="/user/dashboard" class="dashboard-link" title="View My Dashboard">
-                    <i class="fas fa-chart-line"></i> My Dashboard
+            <div class="nav-subtitle" style="display: none; flex-basis: 100%; order: 3;">Advanced Diabetes Assessment & Diagnostic Center</div>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <a href="/user/dashboard" class="dashboard-link" title="Dashboard" style="padding: 0.6rem 1rem; font-size: 0.9rem;">
+                    <i class="fas fa-chart-line"></i> <span style="display: none;">My Dashboard</span><span style="display: inline;">Dashboard</span>
                 </a>
-                <a href="/logout" class="dashboard-link" title="Logout" style="background: #f56565;">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+                <a href="/logout" class="dashboard-link" title="Logout" style="background: #f56565; padding: 0.6rem 1rem; font-size: 0.9rem;">
+                    <i class="fas fa-sign-out-alt"></i> <span style="display: none;">Logout</span>
                 </a>
             </div>
         </div>
     </nav>
+
+    <style>
+        @media (min-width: 768px) {
+            .nav-brand span:first-of-type {
+                display: inline !important;
+            }
+            .nav-brand span:last-of-type {
+                display: none !important;
+            }
+            .nav-subtitle {
+                display: block !important;
+            }
+            .dashboard-link span {
+                display: inline !important;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .navbar .container {
+                padding: 0.75rem !important;
+            }
+            .nav-brand {
+                font-size: 1.1rem !important;
+            }
+            .nav-brand i {
+                font-size: 1.5rem !important;
+            }
+        }
+    </style>
 
     <!-- Main Container -->
     <div class="main-container">
