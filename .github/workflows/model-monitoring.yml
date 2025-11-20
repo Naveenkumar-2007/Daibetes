@@ -1,0 +1,65 @@
+name: Model Monitoring
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM
+  workflow_dispatch:
+
+jobs:
+  monitor-model:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Check for drift
+      id: drift
+      run: |
+        python mlops/monitoring/monitor.py > monitoring_output.txt
+        cat monitoring_output.txt
+        echo "::set-output name=report::$(cat monitoring_output.txt | tail -1)"
+    
+    - name: Check retraining conditions
+      id: retrain
+      run: |
+        python -c "
+from mlops.monitoring.monitor import ModelMonitor
+monitor = ModelMonitor()
+should_retrain, reasons = monitor.should_retrain()
+print(f'Should retrain: {should_retrain}')
+print(f'Reasons: {reasons}')
+with open('should_retrain.txt', 'w') as f:
+    f.write(str(should_retrain))
+        "
+        echo "::set-output name=should_retrain::$(cat should_retrain.txt)"
+    
+    - name: Trigger retraining workflow
+      if: steps.retrain.outputs.should_retrain == 'True'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'mlops-training.yml',
+            ref: 'main'
+          })
+    
+    - name: Upload monitoring reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: monitoring-reports
+        path: |
+          logs/drift_reports/*.json
+          logs/performance_reports/*.json
