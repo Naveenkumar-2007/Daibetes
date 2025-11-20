@@ -909,12 +909,16 @@ body {
 }
 
 /* ========================================
-   RESPONSIVE DESIGN
+   RESPONSIVE DESIGN - MOBILE FIRST
    ======================================== */
+
+/* Tablet and below (768px) */
 @media (max-width: 768px) {
+    /* Typography scaling */
     .header-section h1 {
         font-size: 1.8rem;
         flex-direction: column;
+        text-align: center;
     }
     
     .nav-brand {
@@ -925,41 +929,228 @@ body {
         font-size: 0.8rem;
     }
     
+    .card-header h2 {
+        font-size: 1.3rem;
+    }
+    
+    /* Layout adjustments */
     .form-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
+        gap: var(--spacing-md);
     }
     
     .button-group {
         flex-direction: column;
+        width: 100%;
     }
     
     .btn {
         width: 100%;
         justify-content: center;
+        min-height: 44px; /* Touch target size */
     }
     
+    /* Modal optimizations */
     .modal-content {
         width: 95%;
+        max-width: 95vw;
         margin: var(--spacing-sm);
+        padding: var(--spacing-md);
     }
     
+    /* Result displays */
     .result-row {
         flex-direction: column;
         gap: 0.5rem;
     }
+    
+    .result-card {
+        margin-bottom: var(--spacing-md);
+    }
+    
+    /* Navigation */
+    .nav-links {
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+    }
+    
+    .nav-links .btn {
+        width: 100%;
+    }
+    
+    /* Tables - responsive card view */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    table {
+        display: block;
+        width: 100%;
+    }
+    
+    thead {
+        display: none;
+    }
+    
+    tbody {
+        display: block;
+    }
+    
+    tr {
+        display: block;
+        margin-bottom: var(--spacing-md);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: var(--spacing-sm);
+    }
+    
+    td {
+        display: block;
+        text-align: right;
+        padding: 0.5rem !important;
+        border: none;
+        position: relative;
+        padding-left: 50% !important;
+    }
+    
+    td:before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0.5rem;
+        width: 45%;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-color);
+    }
+    
+    /* Cards spacing */
+    .card {
+        margin-bottom: var(--spacing-md);
+    }
+    
+    /* Form inputs */
+    .form-group {
+        margin-bottom: var(--spacing-md);
+    }
+    
+    input, select, textarea {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
 }
 
+/* Mobile phones (480px and below) */
 @media (max-width: 480px) {
     :root {
         --font-size-base: 14px;
+        --spacing-xs: 0.25rem;
+        --spacing-sm: 0.5rem;
+        --spacing-md: 0.75rem;
+        --spacing-lg: 1rem;
+        --spacing-xl: 1.5rem;
+    }
+    
+    .header-section h1 {
+        font-size: 1.5rem;
+    }
+    
+    .card {
+        padding: var(--spacing-md);
     }
     
     .card-header h2 {
         font-size: 1.2rem;
     }
     
-    .header-section h1 {
-        font-size: 1.5rem;
+    /* Ensure touch targets are large enough */
+    button, .btn, a.btn, input[type="submit"] {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.75rem 1rem;
+    }
+    
+    /* Input fields for better mobile UX */
+    input, select, textarea {
+        font-size: 16px !important; /* Prevent iOS zoom */
+        min-height: 44px;
+        padding: 0.75rem;
+    }
+    
+    /* Tighter spacing */
+    .form-grid {
+        gap: var(--spacing-sm);
+    }
+    
+    .modal-content {
+        width: 100%;
+        max-width: 100vw;
+        margin: 0;
+        border-radius: 0;
+        min-height: 100vh;
+    }
+}
+
+/* Larger tablets (1024px and up) */
+@media (min-width: 1024px) {
+    .form-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .container {
+        max-width: 1200px;
+    }
+}
+
+/* Desktop (1280px and up) */
+@media (min-width: 1280px) {
+    .form-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .container {
+        max-width: 1400px;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger tap targets for touch */
+    .btn, button, a, input, select {
+        min-height: 48px;
+        min-width: 48px;
+    }
+    
+    /* Remove hover effects on touch devices */
+    .btn:hover, button:hover, a:hover {
+        transform: none;
+    }
+    
+    /* Add active state instead */
+    .btn:active, button:active {
+        transform: scale(0.98);
+        opacity: 0.8;
+    }
+}
+
+/* Print styles for medical reports */
+@media print {
+    .nav-section, .button-group, .modal-close, footer {
+        display: none !important;
+    }
+    
+    .card {
+        page-break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+    
+    body {
+        background: white;
+    }
+    
+    .container {
+        max-width: 100%;
     }
 }
 

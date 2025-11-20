@@ -2082,18 +2082,21 @@ def generate_beautiful_pdf(report, report_id):
     story.append(Spacer(1, 0.15*inch))
     
     # Report metadata and doctor info side by side
+    from pytz import timezone
+    ist = timezone('Asia/Kolkata')
     timestamp = report.get('timestamp') or report.get('created_at', 'N/A')
     if timestamp != 'N/A':
         try:
             date_obj = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            date_obj = date_obj.astimezone(ist)
             formatted_date = date_obj.strftime("%B %d, %Y")
-            formatted_time = date_obj.strftime("%I:%M %p")
+            formatted_time = date_obj.strftime("%I:%M %p IST")
         except:
-            formatted_date = datetime.now().strftime("%B %d, %Y")
-            formatted_time = datetime.now().strftime("%I:%M %p")
+            formatted_date = datetime.now(ist).strftime("%B %d, %Y")
+            formatted_time = datetime.now(ist).strftime("%I:%M %p IST")
     else:
-        formatted_date = datetime.now().strftime("%B %d, %Y")
-        formatted_time = datetime.now().strftime("%I:%M %p")
+        formatted_date = datetime.now(ist).strftime("%B %d, %Y")
+        formatted_time = datetime.now(ist).strftime("%I:%M %p IST")
     
     metadata_data = [
         ['Report ID:', report_id, 'Attending Physician:', 'Dr. Sarah Mitchell, MD, FACP'],
@@ -2562,7 +2565,9 @@ Write in a professional medical tone as you would in an actual patient consultat
         leading=10
     )
     
-    current_time = datetime.now().strftime('%B %d, %Y at %I:%M %p')
+    from pytz import timezone as tz
+    ist_tz = tz('Asia/Kolkata')
+    current_time = datetime.now(ist_tz).strftime('%B %d, %Y at %I:%M %p IST')
     
     story.append(Paragraph(
         "<b>⚕️ CITY GENERAL HOSPITAL - DEPARTMENT OF ENDOCRINOLOGY</b>",
