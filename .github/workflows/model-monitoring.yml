@@ -28,7 +28,7 @@ jobs:
       run: |
         python mlops/monitoring/monitor.py > monitoring_output.txt
         cat monitoring_output.txt
-        echo "::set-output name=report::$(cat monitoring_output.txt | tail -1)"
+        echo "report=$(cat monitoring_output.txt | tail -1)" >> $GITHUB_OUTPUT
     
     - name: Check retraining conditions
       id: retrain
@@ -42,7 +42,7 @@ print(f'Reasons: {reasons}')
 with open('should_retrain.txt', 'w') as f:
     f.write(str(should_retrain))
         "
-        echo "::set-output name=should_retrain::$(cat should_retrain.txt)"
+        echo "should_retrain=$(cat should_retrain.txt)" >> $GITHUB_OUTPUT
     
     - name: Trigger retraining workflow
       if: steps.retrain.outputs.should_retrain == 'True'
