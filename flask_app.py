@@ -19,8 +19,16 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 import json
 from datetime import datetime
+import pytz
 
 # Import Firebase configuration
+# Timezone configuration for India
+IST = pytz.timezone('Asia/Kolkata')
+
+def get_ist_now():
+    """Get current datetime in IST timezone"""
+    return datetime.now(IST)
+
 from firebase_config import (
     save_patient_data,
     get_patient_history,
@@ -191,7 +199,7 @@ def extract_parameter_value(record, key):
 def parse_prediction_datetime(record):
     """Parse a prediction's timestamp into a datetime object"""
     if not isinstance(record, dict):
-        return datetime.now()
+        return get_ist_now()
 
     timestamp = record.get('timestamp')
     if isinstance(timestamp, str):
@@ -217,7 +225,7 @@ def parse_prediction_datetime(record):
         except ValueError:
             pass
 
-    return datetime.now()
+    return get_ist_now()
 
 
 def format_prediction_label(record):
@@ -384,7 +392,7 @@ def generate_comparison_pdf(current_prediction, comparison_entry):
     story.append(Paragraph(f"Patient: <b>{patient_name}</b>", body_style))
     latest_result = current_prediction.get('prediction') or current_prediction.get('result', 'N/A')
     story.append(Paragraph(f"Latest Assessment: {latest_result}", body_style))
-    story.append(Paragraph(f"Generated on: {datetime.now().strftime('%B %d, %Y %I:%M %p')}", body_style))
+    story.append(Paragraph(f"Generated on: {get_ist_now().strftime('%B %d, %Y %I:%M %p')}", body_style))
     story.append(Spacer(1, 0.25 * inch))
 
     story.append(Paragraph('Groq Clinical Summary', section_title))
@@ -885,7 +893,7 @@ def get_comprehensive_analysis():
         
         analysis = {
             'patient_name': patient_name,
-            'date': datetime.now().strftime('%B %d, %Y'),
+            'date': get_ist_now().strftime('%B %d, %Y'),
             'total_predictions': total_predictions,
             'high_risk_count': high_risk_count,
             'low_risk_count': low_risk_count,
@@ -948,7 +956,7 @@ def get_profile():
             'email': user_data_fb.get('email', f"{username}@example.com") if user_data_fb else f"{username}@example.com",
             'contact': user_data_fb.get('contact', 'N/A') if user_data_fb else 'N/A',
             'address': user_data_fb.get('address', 'N/A') if user_data_fb else 'N/A',
-            'created_at': user_data_fb.get('created_at', datetime.now().isoformat()) if user_data_fb else datetime.now().isoformat(),
+            'created_at': user_data_fb.get('created_at', get_ist_now().isoformat()) if user_data_fb else get_ist_now().isoformat(),
             'role': session.get('role', 'user')
         }
         
@@ -1002,7 +1010,7 @@ def update_profile():
         if address:
             update_data['address'] = address
         
-        update_data['updated_at'] = datetime.now().isoformat()
+        update_data['updated_at'] = get_ist_now().isoformat()
         
         user_ref.update(update_data)
         
@@ -1676,7 +1684,7 @@ def analyze_prediction_trends():
 
         comparison_entry = {
             'analysis_id': analysis_id,
-            'created_at': datetime.now().isoformat(),
+            'created_at': get_ist_now().isoformat(),
             'current_prediction_id': current_prediction_id,
             'past_prediction_ids': past_prediction_ids,
             'graph_relative_path': comparison_path,
@@ -1913,8 +1921,8 @@ Please generate a comprehensive diabetes assessment report analyzing these healt
         report_content = response.content
         
         # Add header and footer to report
-        timestamp = datetime.now().strftime("%B %d, %Y at %I:%M %p")
-        patient_id = f"DB-{data.get('patient_info', {}).get('name', 'XXXX')[:3].upper()}-{datetime.now().strftime('%Y%m%d%H%M')}"
+        timestamp = get_ist_now().strftime("%B %d, %Y at %I:%M %p")
+        patient_id = f"DB-{data.get('patient_info', {}).get('name', 'XXXX')[:3].upper()}-{get_ist_now().strftime('%Y%m%d%H%M')}"
         
         full_report = f"""
 ╔══════════════════════════════════════════════════════════════════════════╗
@@ -1972,7 +1980,7 @@ All Rights Reserved | Confidential Medical Document
         # Save report to file
         reports_dir = 'reports'
         os.makedirs(reports_dir, exist_ok=True)
-        report_filename = f"diabetes_report_{data.get('patient_info', {}).get('name', 'patient').replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        report_filename = f"diabetes_report_{data.get('patient_info', {}).get('name', 'patient').replace(' ', '_')}_{get_ist_now().strftime('%Y%m%d_%H%M%S')}.txt"
         report_path = os.path.join(reports_dir, report_filename)
         
         with open(report_path, 'w', encoding='utf-8') as f:
@@ -2640,7 +2648,7 @@ def download_report(report_id):
         
         # Generate filename
         patient_name = report.get('patient_name', 'Patient')
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = get_ist_now().strftime('%Y%m%d_%H%M%S')
         filename = f"diabetes_report_{patient_name.replace(' ', '_')}_{timestamp}.pdf"
         
         return send_file(

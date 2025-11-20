@@ -2,6 +2,14 @@
 import json
 import requests
 from datetime import datetime
+import pytz
+
+# Indian Standard Time timezone
+IST = pytz.timezone('Asia/Kolkata')
+
+def get_ist_now():
+    """Get current datetime in IST timezone"""
+    return datetime.now(IST)
 
 try:
     import firebase_admin
@@ -209,7 +217,7 @@ def initialize_firebase():
 def save_patient_data(patient_info, prediction_data, user_id=None):
     global db_ref
     try:
-        timestamp = datetime.now()
+        timestamp = get_ist_now()
         doc_id = f'pred_{timestamp.strftime("%Y%m%d%H%M%S%f")}'
         
         # Extract features array

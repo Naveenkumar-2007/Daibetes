@@ -2,15 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Login - Diabetes Health Predictor</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% if google_login_enabled %}
     <meta name="google-signin-client_id" content="{{ google_client_id }}">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    {% endif %}
-    {% if google_login_enabled %}
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     {% endif %}
     <style>
@@ -21,22 +20,25 @@
         }
 
         body {
-            font-family: 'Inter', 'Poppins', sans-serif, sans-serif;
+            font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 1rem;
+            overflow-x: hidden;
+            touch-action: pan-x pan-y;
+            -ms-touch-action: pan-x pan-y;
         }
 
         .container {
             max-width: 480px;
             width: 100%;
             background: white;
-            border-radius: 16px;
-            padding: 50px 45px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            border-radius: 20px;
+            padding: 2rem 1.5rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
 
         .back-link {
@@ -44,8 +46,8 @@
             align-items: center;
             color: #2563eb;
             text-decoration: none;
-            font-size: 14px;
-            margin-bottom: 25px;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
             font-weight: 600;
             transition: all 0.3s ease;
         }
@@ -56,33 +58,36 @@
         }
 
         .logo {
-            font-size: 60px;
+            font-size: 3rem;
             text-align: center;
-            margin-bottom: 15px;
+            margin-bottom: 1rem;
         }
 
         h1 {
-            font-size: 28px;
+            font-size: 1.75rem;
             color: #1e293b;
-            margin-bottom: 8px;
+            margin-bottom: 0.5rem;
             text-align: center;
-            font-weight: 600;
+            font-weight: 700;
+            line-height: 1.2;
         }
 
         .subtitle {
             color: #64748b;
-            font-size: 15px;
-            margin-bottom: 35px;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
             text-align: center;
+            line-height: 1.5;
         }
 
         .alert {
-            padding: 14px 18px;
-            border-radius: 10px;
-            margin-bottom: 22px;
-            font-size: 14px;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
             display: none;
             font-weight: 500;
+            line-height: 1.5;
         }
 
         .alert-error {
@@ -98,39 +103,42 @@
         }
 
         .form-group {
-            margin-bottom: 22px;
+            margin-bottom: 1.25rem;
         }
 
         label {
             display: flex;
             align-items: center;
-            font-size: 14px;
+            font-size: 0.9rem;
             font-weight: 600;
             color: #1e293b;
-            margin-bottom: 10px;
+            margin-bottom: 0.6rem;
         }
 
         label i {
-            margin-right: 8px;
+            margin-right: 0.5rem;
             color: #2563eb;
-            font-size: 16px;
+            font-size: 1rem;
         }
 
         input {
             width: 100%;
-            padding: 15px 18px;
+            padding: 0.9rem 1rem;
             border: 2px solid #e2e8f0;
             border-radius: 12px;
-            font-size: 15px;
+            font-size: 1rem;
             transition: all 0.3s ease;
-            font-family: 'Inter', 'Poppins', sans-serif, sans-serif;
+            font-family: 'Inter', 'Poppins', -apple-system, sans-serif;
             color: #1e293b;
+            -webkit-appearance: none;
+            appearance: none;
+            touch-action: manipulation;
         }
 
         input:focus {
             outline: none;
             border-color: #2563eb;
-            box-shadow: 0 0 0 4px rgba(8, 145, 178, 0.1);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
         input::placeholder {
@@ -138,13 +146,13 @@
         }
 
         .forgot-link {
-            margin-top: 10px;
+            margin-top: 0.6rem;
             text-align: right;
         }
 
         .forgot-link a {
             color: #1d4ed8;
-            font-size: 13px;
+            font-size: 0.85rem;
             text-decoration: none;
             font-weight: 600;
             transition: color 0.3s ease;
@@ -157,26 +165,30 @@
 
         .button {
             width: 100%;
-            padding: 16px;
+            padding: 1rem;
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
             color: white;
             border: none;
             border-radius: 12px;
-            font-size: 16px;
+            font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin-top: 12px;
+            margin-top: 0.75rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 0.5rem;
+            touch-action: manipulation;
         }
 
         .button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(8, 145, 178, 0.3);
-            background: linear-gradient(135deg, #1d4ed8 0%, #155e75 100%);
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+        }
+
+        .button:active {
+            transform: translateY(0);
         }
 
         .button:disabled {
@@ -187,7 +199,7 @@
 
         .divider {
             text-align: center;
-            margin: 28px 0;
+            margin: 1.75rem 0;
             position: relative;
         }
 
@@ -203,9 +215,9 @@
 
         .divider span {
             background: white;
-            padding: 0 18px;
+            padding: 0 1rem;
             color: #94a3b8;
-            font-size: 13px;
+            font-size: 0.85rem;
             position: relative;
             font-weight: 500;
         }
@@ -213,14 +225,15 @@
         .google-container {
             display: flex;
             justify-content: center;
-            margin-bottom: 16px;
+            margin-bottom: 1rem;
         }
 
         .signup-link {
             text-align: center;
-            margin-top: 20px;
-            font-size: 15px;
+            margin-top: 1.5rem;
+            font-size: 0.95rem;
             color: #64748b;
+            line-height: 1.5;
         }
 
         .signup-link a {
@@ -241,13 +254,48 @@
             justify-content: center;
         }
 
-        @media (max-width: 600px) {
+        /* Mobile Responsive Styles */
+        @media (min-width: 480px) {
             .container {
-                padding: 40px 30px;
+                padding: 2.5rem 2rem;
             }
 
             h1 {
-                font-size: 28px;
+                font-size: 2rem;
+            }
+
+            .logo {
+                font-size: 3.5rem;
+            }
+        }
+
+        @media (min-width: 768px) {
+            .container {
+                padding: 3rem 2.75rem;
+            }
+
+            h1 {
+                font-size: 2.25rem;
+            }
+
+            .logo {
+                font-size: 4rem;
+            }
+
+            .subtitle {
+                font-size: 1rem;
+            }
+        }
+
+        /* Touch-friendly adjustments for mobile */
+        @media (max-width: 479px) {
+            input,
+            .button {
+                min-height: 48px; /* Minimum touch target size */
+            }
+
+            .form-group {
+                margin-bottom: 1rem;
             }
         }
     </style>
