@@ -207,8 +207,10 @@ logs/predictions/*.jsonl
 logs/drift_reports/*.json
 logs/performance_reports/*.json
 .dvc/tmp/
-*.txt
 mlops_structure.txt
+*.log.txt
+*_report.txt
+artifacts/*.txt
 
 # Test files
 test_email.py
