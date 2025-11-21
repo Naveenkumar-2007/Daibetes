@@ -775,7 +775,47 @@ def user_dashboard():
     """Render user dashboard - shows data if predictions exist"""
     if session.get('role') == 'admin':
         return redirect(url_for('admin_dashboard'))
-    return render_template('user_dashboard.html')
+    
+    try:
+        user_id = session.get('user_id')
+        
+        # Get user statistics
+        stats = get_user_statistics(user_id)
+        
+        # Get recent predictions
+        predictions = get_user_predictions(user_id, limit=5)
+        
+        # Calculate high risk count
+        high_risk_count = sum(1 for p in predictions if p.get('prediction') == 1)
+        
+        # Format recent activity
+        recent_activity = []
+        for pred in predictions[:3]:  # Last 3 predictions
+            activity = {
+                'type': 'Diabetes Risk Assessment',
+                'date': pred.get('timestamp', ''),
+                'risk': 'high' if pred.get('prediction') == 1 else 'low',
+                'risk_level': 'High Risk' if pred.get('prediction') == 1 else 'Low Risk'
+            }
+            recent_activity.append(activity)
+        
+        return render_template('user_dashboard.html',
+            total_predictions=stats.get('total_predictions', 0),
+            recent_predictions=stats.get('this_month', 0),
+            total_reports=len(predictions),
+            high_risk_count=high_risk_count,
+            recent_activity=recent_activity
+        )
+    except Exception as e:
+        print(f"Error loading user dashboard: {e}")
+        # Return with default values
+        return render_template('user_dashboard.html',
+            total_predictions=0,
+            recent_predictions=0,
+            total_reports=0,
+            high_risk_count=0,
+            recent_activity=[]
+        )
 
 
 @app.route('/user/predict')
