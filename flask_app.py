@@ -778,36 +778,62 @@ def user_dashboard():
     
     try:
         user_id = session.get('user_id')
+        print(f"📊 Loading dashboard for user: {user_id}")
         
         # Get user statistics
         stats = get_user_statistics(user_id)
+        print(f"📈 Stats: {stats}")
         
         # Get recent predictions
-        predictions = get_user_predictions(user_id, limit=5)
+        predictions = get_user_predictions(user_id, limit=10)
+        print(f"📋 Found {len(predictions)} predictions")
         
-        # Calculate high risk count
-        high_risk_count = sum(1 for p in predictions if p.get('prediction') == 1)
+        # Calculate counts
+        high_risk_count = sum(1 for p in predictions if p.get('risk_level') == 'high' or p.get('prediction') == 1)
+        
+        # Get this month's count
+        from datetime import datetime, timedelta
+        ist_now = get_ist_now()
+        this_month_start = ist_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        recent_predictions = 0
+        for pred in predictions:
+            pred_date_str = pred.get('created_at') or pred.get('timestamp', '')
+            try:
+                # Try parsing different date formats
+                if isinstance(pred_date_str, (int, float)):
+                    pred_date = datetime.fromtimestamp(pred_date_str, tz=IST)
+                else:
+                    pred_date = datetime.fromisoformat(pred_date_str.replace('Z', '+00:00'))
+                    pred_date = pred_date.astimezone(IST)
+                
+                if pred_date >= this_month_start:
+                    recent_predictions += 1
+            except:
+                pass
         
         # Format recent activity
         recent_activity = []
-        for pred in predictions[:3]:  # Last 3 predictions
+        for pred in predictions[:5]:  # Last 5 predictions
             activity = {
                 'type': 'Diabetes Risk Assessment',
-                'date': pred.get('timestamp', ''),
-                'risk': 'high' if pred.get('prediction') == 1 else 'low',
-                'risk_level': 'High Risk' if pred.get('prediction') == 1 else 'Low Risk'
+                'date': pred.get('timestamp') or pred.get('created_at', 'N/A'),
+                'risk': 'high' if (pred.get('risk_level') == 'high' or pred.get('prediction') == 1) else 'low',
+                'risk_level': 'High Risk' if (pred.get('risk_level') == 'high' or pred.get('prediction') == 1) else 'Low Risk'
             }
             recent_activity.append(activity)
         
         return render_template('user_dashboard.html',
             total_predictions=stats.get('total_predictions', 0),
-            recent_predictions=stats.get('this_month', 0),
+            recent_predictions=recent_predictions,
             total_reports=len(predictions),
             high_risk_count=high_risk_count,
             recent_activity=recent_activity
         )
     except Exception as e:
-        print(f"Error loading user dashboard: {e}")
+        print(f"❌ Error loading user dashboard: {e}")
+        import traceback
+        traceback.print_exc()
         # Return with default values
         return render_template('user_dashboard.html',
             total_predictions=0,
@@ -816,6 +842,15 @@ def user_dashboard():
             high_risk_count=0,
             recent_activity=[]
         )
+
+
+@app.route('/user/predictions')
+@login_required
+def user_predictions():
+    """Render user predictions history page"""
+    if session.get('role') == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    return render_template('patient_predictions.html')
 
 
 @app.route('/user/predict')
