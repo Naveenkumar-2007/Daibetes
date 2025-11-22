@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText, Download, Calendar, User, TrendingUp, AlertCircle } from 'lucide-react'
+import { FileText, Download, Calendar, TrendingUp } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../lib/auth'
 import axios from 'axios'
@@ -18,7 +18,7 @@ interface Report {
 export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
-  const { user } = useAuth()
+  useAuth() // Ensure user is authenticated
 
   useEffect(() => {
     fetchReports()

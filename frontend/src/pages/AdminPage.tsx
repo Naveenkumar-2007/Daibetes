@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, FileText, TrendingUp, Activity, Download } from 'lucide-react'
+import { Users, FileText, TrendingUp, Activity } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../lib/auth'
 import { useNavigate } from 'react-router-dom'

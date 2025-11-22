@@ -1,15 +1,18 @@
-# Diabetes Health Predictor – AI Doctor Portal
+# 🏥 Diabetes Health Predictor – AI Doctor Portal
 
-A beautiful, production-ready hospital-style web application for diabetes risk prediction using Machine Learning and AI-powered medical report generation.
+A modern, production-ready healthcare application for diabetes risk prediction with ML models and AI-powered medical reports. Built with Flask, React, TypeScript, and Firebase.
 
-## 🏥 Features
+## ✨ Features
 
-- **Patient Registration System** - Comprehensive patient information capture
-- **ML-Powered Prediction** - Accurate diabetes risk assessment using trained model
-- **AI Doctor Reports** - Professional medical reports generated using Groq LLM
-- **Modern Hospital UI** - Clean, responsive design with medical theme
-- **Real-time Results** - Instant prediction with confidence scores
-- **Downloadable Reports** - Save AI-generated reports as text files
+- **🔐 User Authentication** - Secure login/register with Firebase + password reset
+- **📊 Smart Dashboard** - Patient history, trends, and health metrics visualization
+- **🤖 ML Prediction** - XGBoost model for accurate diabetes risk assessment
+- **📈 Interactive Charts** - Recharts-powered graphs for health data analysis
+- **🧠 AI Medical Reports** - Comprehensive 2000+ word reports via Groq LLM (Llama 3.3)
+- **📱 Responsive Design** - Modern UI with Tailwind CSS, works on all devices
+- **☁️ Azure Deployment** - CI/CD pipeline with GitHub Actions
+- **💾 Firebase Database** - Real-time data sync and persistent storage
+- **📄 PDF Reports** - Professional medical reports with clinical charts
 
 ## 🚀 Quick Start
 

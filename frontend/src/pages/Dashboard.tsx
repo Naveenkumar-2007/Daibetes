@@ -38,7 +38,6 @@ interface AllPrediction {
 }
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState('overview')
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [latestPrediction, setLatestPrediction] = useState<LatestPrediction | null>(null)
@@ -90,7 +89,7 @@ export default function Dashboard() {
 
         // Generate glucose trend from all predictions
         if (predictions.length > 0) {
-          const glucoseTrend = predictions.slice(0, 7).reverse().map((p: AllPrediction, i: number) => ({
+          const glucoseTrend = predictions.slice(0, 7).reverse().map((p: AllPrediction) => ({
             date: new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             glucose: p.glucose,
             bmi: p.bmi,
@@ -453,7 +452,7 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {allPredictions.slice(0, 10).map((pred, index) => (
+                      {allPredictions.slice(0, 10).map((pred) => (
                         <tr key={pred.prediction_id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {new Date(pred.created_at).toLocaleDateString()}
