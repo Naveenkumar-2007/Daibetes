@@ -1,6 +1,13 @@
 # 🏥 Diabetes Health Predictor – AI Doctor Portal
 
+[![Deploy to Azure](https://github.com/Naveenkumar-2007/Daibetes/actions/workflows/azure-deploy.yml/badge.svg)](https://github.com/Naveenkumar-2007/Daibetes/actions/workflows/azure-deploy.yml)
+[![Azure Status](https://img.shields.io/badge/Azure-Live-success?logo=microsoft-azure)](https://diabetes-predictor-ai.azurewebsites.net)
+[![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)](https://www.python.org/)
+[![React](https://img.shields.io/badge/React-20-61dafb?logo=react)](https://reactjs.org/)
+
 A modern, production-ready healthcare application for diabetes risk prediction with ML models and AI-powered medical reports. Built with Flask, React, TypeScript, and Firebase.
+
+**🌐 Live Demo:** [https://diabetes-predictor-ai.azurewebsites.net](https://diabetes-predictor-ai.azurewebsites.net)
 
 ## ✨ Features
 
@@ -206,22 +213,65 @@ The ML model is trained on the Pima Indians Diabetes Database and predicts diabe
 - Use environment variables for sensitive data
 - Implement rate limiting for production deployment
 
-## 🚀 Production Deployment
+## 🚀 Azure Deployment (CI/CD)
 
-For production deployment:
+This project includes automated CI/CD deployment to Azure Web App Services.
 
-1. Set `debug=False` in `flask_app.py`
-2. Use a production WSGI server (Gunicorn, uWSGI)
-3. Set up proper error logging
-4. Implement authentication if needed
-5. Use HTTPS for secure communication
-6. Set up CORS policies appropriately
+### Quick Deploy to Azure
 
-Example with Gunicorn:
+1. **Create Azure Web App** (Python 3.11, Linux)
+2. **Configure Environment Variables** in Azure Portal
+3. **Get Publish Profile** and add to GitHub Secrets as `AZURE_WEBAPP_PUBLISH_PROFILE`
+4. **Push to main branch** - automatic deployment starts!
+
 ```bash
-pip install gunicorn
-gunicorn -w 4 -b 0.0.0.0:5000 flask_app:app
+git add .
+git commit -m "Deploy to Azure"
+git push origin main
 ```
+
+### Detailed Deployment Guide
+
+📚 **Complete Guide:** [AZURE_DEPLOYMENT.md](./AZURE_DEPLOYMENT.md)
+✅ **Checklist:** [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)
+
+### Verify Deployment
+
+Run the verification script after deployment:
+
+```bash
+bash verify-deployment.sh
+```
+
+### CI/CD Pipeline Features
+
+- ✅ Automated Python backend build
+- ✅ Automated React frontend build  
+- ✅ Combined deployment to Azure
+- ✅ Health checks after deployment
+- ✅ Detailed deployment logs
+- ✅ Rollback support
+
+**Workflow File:** `.github/workflows/azure-deploy.yml`
+
+### Monitor Your Deployment
+
+```bash
+# View live logs
+az webapp log tail -g diabetes-predictor-rg -n diabetes-predictor-ai
+
+# Restart application
+az webapp restart -g diabetes-predictor-rg -n diabetes-predictor-ai
+```
+
+### Production Best Practices
+
+- ✅ Use B1 or higher tier (no cold starts)
+- ✅ Enable Application Insights for monitoring
+- ✅ Configure custom domain with SSL
+- ✅ Set up Azure Key Vault for secrets
+- ✅ Enable automated backups
+- ✅ Configure alerts for errors/downtime
 
 ## 🤝 Contributing
 

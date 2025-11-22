@@ -1,13 +1,69 @@
-.git
-.gitignore
-.env
-venv/
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.log
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
 build/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/tsconfig.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Environment
+.env
+.env.local
+*.env
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Logs
 logs/
+*.log
+
+# Azure
+azure-logs/
+.azure/
+
+# MLOps
+mlruns/
+
+# Reports (generated at runtime)
 reports/*.txt
-reports/*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
