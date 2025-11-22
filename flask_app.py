@@ -48,11 +48,6 @@ from auth import (
     get_user_predictions, get_user_statistics, change_password, update_user_profile
 )
 
-# Import MLOps components
-from mlops.api.endpoints import mlops_bp
-from mlops.monitoring.monitor import ModelMonitor
-from mlops.utils.helpers import add_engineered_features
-
 # ------------------- FLASK APP SETUP -------------------
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'diabetes-predictor-secret-key-2025-change-in-production'
@@ -60,14 +55,6 @@ app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 
 # Enable CORS for React frontend
 CORS(app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'])
-
-# Register MLOps API Blueprint
-app.register_blueprint(mlops_bp)
-print("✅ MLOps API endpoints registered at /mlops/api")
-
-# Initialize MLOps Monitor
-model_monitor = ModelMonitor()
-print("✅ MLOps Monitoring initialized")
 
 # ------------------- LOAD ML MODEL & SCALER -------------------
 MODEL_PATH = os.path.join('artifacts', 'model.pkl')
@@ -1787,15 +1774,14 @@ def predict():
                 'error': 'Invalid medical test values. Please check all inputs.'
             }), 400
         
-        # Add engineered features for MLOps model
+        # Prepare features for prediction
         features_array = np.array(features).reshape(1, -1)
-        features_with_eng = add_engineered_features(features_array)
         
         # Scale features if scaler is available
         if scaler is not None:
-            features_scaled = scaler.transform(features_with_eng)
+            features_scaled = scaler.transform(features_array)
         else:
-            features_scaled = features_with_eng
+            features_scaled = features_array
         
         prediction = model.predict(features_scaled)[0]
         
@@ -1807,29 +1793,6 @@ def predict():
         except:
             confidence = 85.0  # Default confidence
             probability = 0.85 if prediction == 1 else 0.15
-        
-        # Log prediction to MLOps monitoring
-        try:
-            user_id = session.get('user_id', 'anonymous')
-            features_dict = {
-                'Pregnancies': features[0],
-                'Glucose': features[1],
-                'BloodPressure': features[2],
-                'SkinThickness': features[3],
-                'Insulin': features[4],
-                'BMI': features[5],
-                'DiabetesPedigreeFunction': features[6],
-                'Age': features[7]
-            }
-            model_monitor.log_prediction(
-                features=features_dict,
-                prediction=int(prediction),
-                probability=probability,
-                user_id=user_id
-            )
-            print(f"✅ MLOps: Prediction logged for monitoring")
-        except Exception as monitor_error:
-            print(f"⚠️ MLOps monitoring error (non-critical): {monitor_error}")
         
         # Interpret result
         if prediction == 1:
