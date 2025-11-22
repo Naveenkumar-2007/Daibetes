@@ -1,0 +1,73 @@
+name: Build Application
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build React frontend
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Copy frontend build to Flask static
+        run: |
+          mkdir -p static/app
+          cp -r frontend/dist/* static/app/
+
+      - name: Verify build artifacts
+        run: |
+          echo "✅ Build completed successfully"
+          echo "Frontend build size:"
+          du -sh frontend/dist
+          echo "Static app size:"
+          du -sh static/app
+          
+      - name: Build Summary
+        run: |
+          echo "### ✅ Build Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Python: ${{ env.PYTHON_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Node.js: ${{ env.NODE_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: Built successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: Dependencies installed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Ready for Azure deployment!" >> $GITHUB_STEP_SUMMARY

@@ -1,9 +1,6 @@
-name: Deploy to Azure Web App
+name: Deploy to Azure (Manual)
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 env:
@@ -12,9 +9,9 @@ env:
   NODE_VERSION: '18'
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -52,13 +49,43 @@ jobs:
           mkdir -p static/app
           cp -r frontend/dist/* static/app/
 
-      - name: Create deployment package
-        run: |
-          zip -r deploy.zip static templates artifacts src flask_app.py auth.py firebase_config.py report_generator.py retrain_model.py requirements.txt startup.sh .env.example
-          
+      - name: Upload artifact for deployment
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-app
+          path: |
+            static/
+            templates/
+            artifacts/
+            src/
+            flask_app.py
+            auth.py
+            firebase_config.py
+            report_generator.py
+            retrain_model.py
+            requirements.txt
+            startup.sh
+            .env.example
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.repository == 'Naveenkumar-2007/Daibetes')
+    environment:
+      name: 'production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v3
+        with:
+          name: python-app
+          path: .
+
       - name: Deploy to Azure Web App
+        id: deploy-to-webapp
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: deploy.zip
+          package: .
