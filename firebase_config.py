@@ -3,13 +3,35 @@ import json
 import requests
 from datetime import datetime
 import pytz
+from functools import lru_cache
+import time
 
 # Indian Standard Time timezone
 IST = pytz.timezone('Asia/Kolkata')
 
+# Cache for Firebase data (expires after 2 seconds)
+_firebase_cache = {}
+_cache_timeout = 2  # seconds
+
 def get_ist_now():
     """Get current datetime in IST timezone"""
     return datetime.now(IST)
+
+def _get_cache_key(path):
+    """Generate cache key for Firebase path"""
+    return f"firebase_{path}"
+
+def _get_cached_data(cache_key):
+    """Get cached data if still valid"""
+    if cache_key in _firebase_cache:
+        data, timestamp = _firebase_cache[cache_key]
+        if time.time() - timestamp < _cache_timeout:
+            return data
+    return None
+
+def _set_cached_data(cache_key, data):
+    """Store data in cache with timestamp"""
+    _firebase_cache[cache_key] = (data, time.time())
 
 try:
     import firebase_admin
@@ -61,6 +83,7 @@ class FirebaseRestRef:
     def __init__(self, base_url, path):
         self.base_url = base_url
         self.path = path
+        # Use simple .json endpoint (requires open database rules)
         self.full_path = f"{base_url}/{path}.json" if path else f"{base_url}/.json"
     
     def child(self, sub_path):
@@ -69,20 +92,56 @@ class FirebaseRestRef:
     
     def get(self):
         try:
+            # Check cache first
+            cache_key = _get_cache_key(self.path)
+            cached_data = _get_cached_data(cache_key)
+            if cached_data is not None:
+                print(f"💾 Cache hit for: {self.path}")
+                return cached_data
+            
+            print(f"🌐 Firebase GET: {self.full_path}")
             response = requests.get(self.full_path)
+            print(f"  Status: {response.status_code}")
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                print(f"  Data type: {type(data)}, Length: {len(data) if isinstance(data, (dict, list)) else 'N/A'}")
+                # Cache the data
+                _set_cached_data(cache_key, data)
+                return data
+            else:
+                print(f"  ❌ Failed with status {response.status_code}")
             return None
         except Exception as e:
             print(f'Firebase GET error at {self.path}: {e}')
+            import traceback
+            traceback.print_exc()
             return None
     
     def set(self, value):
         try:
+            print(f"🌐 Firebase SET: {self.full_path}")
             response = requests.put(self.full_path, json=value)
-            return response.status_code == 200
+            print(f"  Status: {response.status_code}, Response: {response.text[:200]}")
+            if response.status_code == 200:
+                print(f"  ✅ Data written successfully")
+                # Invalidate cache for this path
+                cache_key = _get_cache_key(self.path)
+                if cache_key in _firebase_cache:
+                    del _firebase_cache[cache_key]
+                # Also invalidate parent paths
+                if '/' in self.path:
+                    parent_path = self.path.rsplit('/', 1)[0]
+                    parent_key = _get_cache_key(parent_path)
+                    if parent_key in _firebase_cache:
+                        del _firebase_cache[parent_key]
+                return True
+            else:
+                print(f"  ❌ Write failed with status {response.status_code}")
+                return False
         except Exception as e:
             print(f'Firebase SET error at {self.path}: {e}')
+            import traceback
+            traceback.print_exc()
             return False
     
     def update(self, value):
@@ -118,22 +177,48 @@ class FirebaseRestRef:
 
 class LocalDB:
     def __init__(self):
-        self.data = {}
-        print('⚠️ Using Local Storage Mode (Temporary)')
+        self.db_file = 'local_database.json'
+        self.data = self._load_from_file()
+        print(f'💾 Using Local JSON Storage: {self.db_file}')
+        
+    def _load_from_file(self):
+        """Load data from JSON file"""
+        if os.path.exists(self.db_file):
+            try:
+                with open(self.db_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    print(f'  ✅ Loaded {len(data)} records from local storage')
+                    return data
+            except:
+                return {}
+        return {}
+    
+    def _save_to_file(self):
+        """Save data to JSON file"""
+        try:
+            with open(self.db_file, 'w', encoding='utf-8') as f:
+                json.dump(self.data, f, indent=2)
+        except Exception as e:
+            print(f'Error saving to local storage: {e}')
+    
     def child(self, path):
-        return LocalDBRef(self.data, path)
+        return LocalDBRef(self.data, path, self._save_to_file)
     def get(self):
         return self.data
     def set(self, value):
         self.data = value
+        self._save_to_file()
 
 class LocalDBRef:
-    def __init__(self, data, path):
+    def __init__(self, data, path, save_callback=None):
         self.data = data
         self.path = path
+        self.save_callback = save_callback
+        
     def child(self, sub_path):
         new_path = f'{self.path}/{sub_path}' if self.path else sub_path
-        return LocalDBRef(self.data, new_path)
+        return LocalDBRef(self.data, new_path, self.save_callback)
+        
     def get(self):
         parts = self.path.split('/') if self.path else []
         current = self.data
@@ -143,23 +228,36 @@ class LocalDBRef:
             else:
                 return None
         return current
+        
     def set(self, value):
         parts = self.path.split('/') if self.path else []
         if not parts:
             self.data.update(value if isinstance(value, dict) else {})
-            return
-        current = self.data
-        for part in parts[:-1]:
-            if part not in current:
-                current[part] = {}
-            current = current[part]
-        current[parts[-1]] = value
+        else:
+            current = self.data
+            for part in parts[:-1]:
+                if part not in current:
+                    current[part] = {}
+                current = current[part]
+            current[parts[-1]] = value
+        
+        # Save to file after every set
+        if self.save_callback:
+            self.save_callback()
+            
     def update(self, value):
         parts = self.path.split('/') if self.path else []
         if not parts:
             if isinstance(value, dict):
                 self.data.update(value)
-            return
+        else:
+            current = self.get()
+            if isinstance(current, dict) and isinstance(value, dict):
+                current.update(value)
+        
+        # Save to file after every update
+        if self.save_callback:
+            self.save_callback()
         current = self.data
         for part in parts[:-1]:
             if part not in current or not isinstance(current[part], dict):
@@ -187,7 +285,19 @@ def initialize_firebase():
     try:
         test_ref = FirebaseRestDB(DATABASE_URL)
         # Test connection
-        test_data = test_ref.get()
+        test_response = requests.get(f'{DATABASE_URL}/.json')
+        if test_response.status_code == 401:
+            print('❌ Firebase requires authentication (401 Unauthorized)')
+            print('📝 Please update Firebase Realtime Database Rules to:')
+            print('   {')
+            print('     "rules": {')
+            print('       ".read": true,')
+            print('       ".write": true')
+            print('     }')
+            print('   }')
+            print('💾 Switching to Local JSON Storage...')
+            raise Exception("Firebase 401 - Using local storage")
+        
         db_ref = test_ref
         firebase_initialized = True
         use_rest_api = True
@@ -210,15 +320,19 @@ def initialize_firebase():
         except Exception as e:
             print(f'⚠️ Admin SDK error: {e}')
     
-    # Fallback to local storage
-    print('⚠️ Using Local Storage Mode (data will not persist)')
-    return False
+    # Fallback to local storage with JSON file persistence
+    db_ref = LocalDB()
+    firebase_initialized = True
+    use_rest_api = False
+    return True
 
 def save_patient_data(patient_info, prediction_data, user_id=None):
     global db_ref
     try:
         timestamp = get_ist_now()
         doc_id = f'pred_{timestamp.strftime("%Y%m%d%H%M%S%f")}'
+        
+        print(f"💾 Saving prediction {doc_id} for user_id: {user_id}")
         
         # Extract features array
         features = prediction_data.get('features', [])
@@ -261,7 +375,12 @@ def save_patient_data(patient_info, prediction_data, user_id=None):
             'created_at': timestamp.timestamp(),
             'report_id': doc_id
         }
+        
+        print(f"  📝 Data user_id field: '{data['user_id']}'")
+        print(f"  📝 Patient: {data['patient_name']}, Risk: {data['risk_level']}")
+        
         db_ref.child('predictions').child(doc_id).set(data)
+        print(f"  ✅ Saved to predictions/{doc_id}")
         if user_id and user_id != 'anonymous':
             user_data = {
                 'prediction_id': doc_id,
@@ -297,20 +416,39 @@ def get_patient_history(patient_name=None, user_id=None, limit=50):
     try:
         predictions = db_ref.child('predictions').get()
         if not predictions:
+            print(f"⚠️ No predictions in Firebase database")
             return []
+        
+        print(f"🔍 Searching predictions for user_id: {user_id}")
+        print(f"📊 Total predictions in database: {len(predictions)}")
+        
         history = []
         for pred_id, pred_data in predictions.items():
             if not isinstance(pred_data, dict):
                 continue
-            if user_id and pred_data.get('user_id') != user_id:
+            
+            pred_user_id = pred_data.get('user_id')
+            print(f"  Checking {pred_id}: user_id={pred_user_id} (looking for {user_id})")
+            
+            if user_id and pred_user_id != user_id:
+                print(f"    ❌ User ID mismatch: '{pred_user_id}' != '{user_id}'")
                 continue
+                
             if patient_name and pred_data.get('patient_name', '').lower() != patient_name.lower():
                 continue
+                
             pred_data['id'] = pred_id
+            pred_data['prediction_id'] = pred_id  # Add prediction_id field
             history.append(pred_data)
+            print(f"    ✅ Added prediction {pred_id}")
+        
+        print(f"✅ Found {len(history)} predictions for user {user_id}")
         history.sort(key=lambda x: x.get('created_at', 0), reverse=True)
         return history[:limit]
     except Exception as e:
+        print(f"Error in get_patient_history: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def get_statistics(user_id=None):

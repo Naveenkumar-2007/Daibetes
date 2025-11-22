@@ -22,7 +22,7 @@ except ImportError:
 
 # Admin credentials (hardcoded for security)
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD_HASH = "e54fc6b51915e222ba6196747a19ebb8dfa651fd2b46a385a0ded647fbfefda0"  # Change this password!
+ADMIN_PASSWORD_HASH = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9"  # Password: admin123
 
 # OAuth and email configuration
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
@@ -191,101 +191,126 @@ def create_user(username, email, password, full_name, contact="", address=""):
 
 def initiate_password_reset(email, base_url):
     """Start the password reset flow for the provided email"""
-    if not db:
-        return False, "Database not initialized"
-
+    import firebase_config
+    
     normalized_email = (email or '').strip().lower()
     if not normalized_email:
         return False, "Email is required"
 
+    # Find user by email in Realtime Database
     try:
-        users_ref = db.collection('users')
-        user_matches = list(users_ref.where('email', '==', normalized_email).limit(1).stream())
-    except Exception as exc:
-        print(f"❌ Password reset lookup error: {exc}")
-        return False, "Unable to process password reset right now"
-
-    if not user_matches:
-        return True, "If an account exists for that email, we've sent reset instructions"
-
-    user_doc = user_matches[0]
-    user_data = user_doc.to_dict()
-    if not user_data.get('is_active', True):
-        return True, "If an account exists for that email, we've sent reset instructions"
-
-    if user_data.get('auth_provider') == 'google' and not user_data.get('password_hash'):
-        return True, "This account uses Google Sign-In. Please continue with Google to access your dashboard"
-
-    token = secrets.token_urlsafe(48)
-    expires_at = datetime.utcnow() + timedelta(hours=PASSWORD_RESET_EXPIRY_HOURS)
-
-    try:
-        tokens_ref = db.collection('password_resets')
-        tokens_ref.document(token).set({
+        firebase_config.initialize_firebase()
+        users_ref = firebase_config.db_ref.child('users')
+        all_users = users_ref.get() or {}
+        
+        user_id = None
+        user_data = None
+        
+        # Search for user with matching email
+        for uid, udata in all_users.items():
+            if isinstance(udata, dict) and udata.get('email', '').lower() == normalized_email:
+                user_id = uid
+                user_data = udata
+                break
+        
+        if not user_id or not user_data:
+            # Return success message for security (don't reveal if email exists)
+            return True, "If an account exists for that email, we've sent reset instructions"
+        
+        if not user_data.get('is_active', True):
+            return True, "If an account exists for that email, we've sent reset instructions"
+        
+        # Generate reset token
+        token = secrets.token_urlsafe(48)
+        expires_at = datetime.utcnow() + timedelta(hours=PASSWORD_RESET_EXPIRY_HOURS)
+        
+        # Store token in Realtime Database
+        tokens_ref = firebase_config.db_ref.child('password_resets').child(token)
+        tokens_ref.set({
             'token': token,
-            'user_id': user_doc.id,
+            'user_id': user_id,
             'email': normalized_email,
             'created_at': datetime.utcnow().isoformat(),
             'expires_at': expires_at.isoformat(),
             'used': False
         })
+        
+        # Generate reset URL
+        base = (base_url or '').rstrip('/')
+        reset_url = f"{base}/reset-password?token={token}" if base else f"/reset-password?token={token}"
+        
+        # For now, just print the reset URL (in production, this would send an email)
+        print(f"\n{'='*70}")
+        print(f"🔐 PASSWORD RESET REQUEST")
+        print(f"{'='*70}")
+        print(f"Email: {normalized_email}")
+        print(f"Reset URL: {reset_url}")
+        print(f"Token expires in {PASSWORD_RESET_EXPIRY_HOURS} hours")
+        print(f"{'='*70}\n")
+        
+        # Attempt to send email (will work if email is configured)
+        try:
+            email_sent, email_message = send_password_reset_email(normalized_email, reset_url)
+            if not email_sent:
+                print(f"⚠️ Email not configured. Password reset link printed above.")
+        except Exception as e:
+            print(f"⚠️ Email sending failed: {e}")
+        
+        return True, "Password reset instructions have been sent. Please check the console for the reset link."
+        
     except Exception as exc:
-        print(f"❌ Unable to persist password reset token: {exc}")
+        print(f"❌ Password reset error: {exc}")
+        import traceback
+        traceback.print_exc()
         return False, "Unable to process password reset right now"
-
-    base = (base_url or '').rstrip('/')
-    reset_url = f"{base}/reset-password?token={token}" if base else f"/reset-password?token={token}"
-
-    email_sent, email_message = send_password_reset_email(normalized_email, reset_url)
-    if not email_sent:
-        print(f"⚠️ Password reset delivery failed for {normalized_email}: {email_message}")
-        return False, email_message or "Unable to send password reset email right now"
-
-    return True, "If an account exists for that email, we've sent reset instructions"
 
 
 def validate_password_reset_token(token):
     """Check whether a password reset token is valid"""
-    if not db:
-        return False, "Database not initialized", None
-
+    import firebase_config
+    
     token_value = (token or '').strip()
     if not token_value:
         return False, "Invalid or expired reset link", None
 
     try:
-        tokens_ref = db.collection('password_resets')
-        token_doc = tokens_ref.document(token_value)
-        token_snapshot = token_doc.get()
+        firebase_config.initialize_firebase()
+        tokens_ref = firebase_config.db_ref.child('password_resets').child(token_value)
+        token_data = tokens_ref.get()
+        
+        if not token_data:
+            return False, "Invalid or expired reset link", None
+        
+        if token_data.get('used'):
+            return False, "This reset link has already been used", None
+        
+        expires_at = token_data.get('expires_at')
+        try:
+            expiry_dt = datetime.fromisoformat(expires_at) if expires_at else None
+        except Exception:
+            expiry_dt = None
+        
+        if not expiry_dt or expiry_dt < datetime.utcnow():
+            # Delete expired token
+            try:
+                tokens_ref.delete()
+            except Exception:
+                pass
+            return False, "This reset link has expired", None
+        
+        return True, "Valid token", token_data
+        
     except Exception as exc:
         print(f"❌ Password reset token lookup error: {exc}")
+        import traceback
+        traceback.print_exc()
         return False, "Invalid or expired reset link", None
-
-    if not getattr(token_doc, 'exists', False):
-        return False, "Invalid or expired reset link", None
-
-    token_data = token_snapshot.to_dict()
-    if token_data.get('used'):
-        return False, "This reset link has already been used", None
-
-    expires_at = token_data.get('expires_at')
-    try:
-        expiry_dt = datetime.fromisoformat(expires_at) if expires_at else None
-    except Exception:
-        expiry_dt = None
-
-    if not expiry_dt or expiry_dt < datetime.utcnow():
-        try:
-            token_doc.delete()
-        except Exception:
-            pass
-        return False, "This reset link has expired", None
-
-    return True, "Valid token", token_data
 
 
 def reset_password_with_token(token, new_password):
     """Update the user's password when a valid token is provided"""
+    import firebase_config
+    
     token_value = (token or '').strip()
 
     if len((new_password or '').strip()) < 6:
@@ -300,33 +325,34 @@ def reset_password_with_token(token, new_password):
         return False, "User account not found"
 
     try:
-        users_ref = db.collection('users')
-        user_doc = users_ref.document(user_id)
+        firebase_config.initialize_firebase()
+        users_ref = firebase_config.db_ref.child('users').child(user_id)
+        user_data = users_ref.get()
+        
+        if not user_data:
+            return False, "User account not found"
+        
+        # Update password
+        user_data['password_hash'] = hash_password(new_password.strip())
+        user_data['auth_provider'] = 'password'
+        user_data['last_password_reset'] = datetime.utcnow().isoformat()
+        
+        users_ref.set(user_data)
+        
+        # Mark token as used
+        tokens_ref = firebase_config.db_ref.child('password_resets').child(token_value)
+        token_data['used'] = True
+        token_data['used_at'] = datetime.utcnow().isoformat()
+        tokens_ref.set(token_data)
+        
+        print(f"✅ Password reset successful for user: {user_id}")
+        return True, "Password has been reset successfully. You can now login with your new password."
+        
     except Exception as exc:
         print(f"❌ Password reset update error: {exc}")
+        import traceback
+        traceback.print_exc()
         return False, "Unable to reset password right now"
-
-    if not user_doc.exists:
-        return False, "User account not found"
-
-    try:
-        user_doc.update({
-            'password_hash': hash_password(new_password.strip()),
-            'auth_provider': 'password',
-            'last_password_reset': datetime.utcnow().isoformat()
-        })
-    except Exception as exc:
-        print(f"❌ Failed to update password: {exc}")
-        return False, "Unable to reset password right now"
-
-    try:
-        tokens_ref = db.collection('password_resets')
-        tokens_ref.document(token_value).update({
-            'used': True,
-            'used_at': datetime.utcnow().isoformat()
-        })
-    except Exception:
-        pass
 
     return True, "Password reset successfully"
 

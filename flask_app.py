@@ -3,7 +3,8 @@ Diabetes Health Predictor - AI Doctor Portal
 Flask Backend Application with Firebase Integration
 """
 
-from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash, send_from_directory
+from flask_cors import CORS
 import pickle
 import numpy as np
 import os
@@ -56,6 +57,9 @@ from mlops.utils.helpers import add_engineered_features
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'diabetes-predictor-secret-key-2025-change-in-production'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
+
+# Enable CORS for React frontend
+CORS(app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'])
 
 # Register MLOps API Blueprint
 app.register_blueprint(mlops_bp)
@@ -470,7 +474,13 @@ def generate_comparison_pdf(current_prediction, comparison_entry):
 
 @app.route('/')
 def home():
-    """Render landing page with login/register options"""
+    """Serve React app in production or landing page in development"""
+    # Check if React build exists (production mode)
+    react_build = os.path.join(os.path.dirname(__file__), 'static', 'app', 'index.html')
+    if os.path.exists(react_build):
+        return send_from_directory(os.path.join('static', 'app'), 'index.html')
+    
+    # Development mode - use Flask templates
     if 'user_id' in session:
         if session.get('role') == 'admin':
             return redirect(url_for('admin_dashboard'))
@@ -481,6 +491,19 @@ def home():
         google_client_id=google_client_id,
         google_login_enabled=bool(google_client_id)
     )
+
+
+@app.route('/<path:path>')
+def serve_react_app(path):
+    """Serve React app static files in production"""
+    react_dir = os.path.join(os.path.dirname(__file__), 'static', 'app')
+    if os.path.exists(os.path.join(react_dir, path)):
+        return send_from_directory(react_dir, path)
+    # For React Router - serve index.html for any unknown route
+    if os.path.exists(os.path.join(react_dir, 'index.html')):
+        return send_from_directory(react_dir, 'index.html')
+    # Fallback to 404
+    return "Not Found", 404
 
 
 @app.route('/login')
@@ -764,6 +787,268 @@ def api_reset_password():
         return jsonify({
             'success': False,
             'message': f'Password reset error: {str(e)}'
+        }), 500
+
+
+@app.route('/api/session', methods=['GET'])
+def get_session():
+    """Get current session information for React frontend"""
+    try:
+        if 'user_id' in session:
+            return jsonify({
+                'success': True,
+                'authenticated': True,
+                'user': {
+                    'user_id': session.get('user_id'),
+                    'username': session.get('username'),
+                    'full_name': session.get('full_name'),
+                    'email': session.get('email'),
+                    'role': session.get('role', 'user')
+                }
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'authenticated': False,
+                'user': None
+            })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/user/latest_prediction', methods=['GET'])
+@login_required
+def get_latest_prediction():
+    """Get user's latest prediction for dashboard"""
+    try:
+        user_id = session.get('user_id')
+        predictions = get_user_predictions(user_id, limit=1)
+        
+        print(f"🔍 Fetching latest prediction for user {user_id}")
+        print(f"📦 Got {len(predictions)} predictions")
+        
+        if predictions and len(predictions) > 0:
+            pred = predictions[0]
+            print(f"✅ Latest prediction: {pred.get('patient_name', pred.get('name'))}")
+            
+            # Determine prediction value
+            pred_value = 1 if 'High' in str(pred.get('prediction', '')) or pred.get('risk_level') == 'high' else 0
+            
+            return jsonify({
+                'success': True,
+                'prediction': {
+                    'prediction_id': pred.get('prediction_id', pred.get('id', pred.get('report_id'))),
+                    'prediction': pred_value,
+                    'probability': float(pred.get('confidence', 85)) / 100,
+                    'patient_name': pred.get('patient_name', pred.get('name', 'Unknown')),
+                    'age': int(pred.get('Age', pred.get('age', 0))),
+                    'bmi': float(pred.get('BMI', pred.get('bmi', 0))),
+                    'glucose': float(pred.get('Glucose', pred.get('glucose', 0))),
+                    'blood_pressure': float(pred.get('BloodPressure', pred.get('blood_pressure', 0))),
+                    'insulin': float(pred.get('Insulin', pred.get('insulin', 0))),
+                    'created_at': pred.get('timestamp', pred.get('created_at', ''))
+                }
+            })
+        else:
+            print("⚠️ No predictions found for user")
+            return jsonify({
+                'success': True,
+                'prediction': None
+            })
+    except Exception as e:
+        print(f"❌ Error in get_latest_prediction: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/user/all_predictions', methods=['GET'])
+@login_required
+def get_all_user_predictions():
+    """Get all user predictions for dashboard overview and graphs"""
+    try:
+        user_id = session.get('user_id')
+        predictions = get_user_predictions(user_id, limit=100)
+        
+        print(f"📊 Fetched {len(predictions)} predictions for user {user_id}")
+        
+        formatted_predictions = []
+        for pred in predictions:
+            # Determine prediction value (1 for high risk, 0 for low risk)
+            pred_value = 1 if 'High' in str(pred.get('prediction', '')) or pred.get('risk_level') == 'high' else 0
+            
+            formatted_pred = {
+                'prediction_id': pred.get('prediction_id', pred.get('id', pred.get('report_id'))),
+                'patient_name': pred.get('patient_name', pred.get('name', 'Unknown')),
+                'prediction': pred_value,
+                'probability': float(pred.get('confidence', 85)) / 100,
+                'risk_level': pred.get('risk_level', 'high' if pred_value == 1 else 'low'),
+                'confidence': float(pred.get('confidence', 85)),
+                'age': int(pred.get('Age', pred.get('age', 0))),
+                'bmi': float(pred.get('BMI', pred.get('bmi', 0))),
+                'glucose': float(pred.get('Glucose', pred.get('glucose', 0))),
+                'blood_pressure': float(pred.get('BloodPressure', pred.get('blood_pressure', 0))),
+                'insulin': float(pred.get('Insulin', pred.get('insulin', 0))),
+                'skin_thickness': float(pred.get('SkinThickness', pred.get('skin_thickness', 0))),
+                'pregnancies': int(pred.get('Pregnancies', pred.get('pregnancies', 0))),
+                'dpf': float(pred.get('DiabetesPedigreeFunction', pred.get('diabetes_pedigree_function', 0))),
+                'created_at': pred.get('timestamp', pred.get('created_at', '')),
+                'date': pred.get('date', ''),
+                'has_report': bool(pred.get('report_path') or pred.get('report_id'))
+            }
+            formatted_predictions.append(formatted_pred)
+            print(f"  ✓ {formatted_pred['patient_name']} - {formatted_pred['risk_level']} risk")
+        
+        return jsonify({
+            'success': True,
+            'predictions': formatted_predictions,
+            'total': len(formatted_predictions)
+        })
+    except Exception as e:
+        print(f"❌ Error in get_all_user_predictions: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'predictions': []
+        }), 500
+
+
+@app.route('/api/user/reports', methods=['GET'])
+@login_required
+def get_user_reports():
+    """Get all reports for current user"""
+    try:
+        user_id = session.get('user_id')
+        predictions = get_user_predictions(user_id)
+        
+        reports = []
+        for pred in predictions:
+            if pred.get('report_id') or pred.get('report_path'):
+                reports.append({
+                    'report_id': pred.get('report_id', pred.get('prediction_id')),
+                    'prediction_id': pred.get('prediction_id'),
+                    'patient_name': pred.get('name', 'Unknown'),
+                    'prediction_result': 'Positive' if pred.get('prediction') == 1 else 'Negative',
+                    'probability': pred.get('probability', 0.5),
+                    'generated_at': pred.get('created_at', pred.get('timestamp')),
+                    'report_file': pred.get('report_path')
+                })
+        
+        return jsonify({
+            'success': True,
+            'reports': reports
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/user/update_profile', methods=['POST'])
+@login_required
+def api_update_user_profile():
+    """Update user profile"""
+    try:
+        user_id = session.get('user_id')
+        data = request.json
+        
+        # Call the auth function with correct parameters
+        from auth import update_user_profile as update_profile_func
+        success, message = update_profile_func(
+            user_id=user_id,
+            full_name=data.get('full_name'),
+            contact=data.get('contact'),
+            address=data.get('address')
+        )
+        
+        return jsonify({
+            'success': success,
+            'message': message
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/user/change_password', methods=['POST'])
+@login_required
+def change_user_password():
+    """Change user password"""
+    try:
+        user_id = session.get('user_id')
+        data = request.json
+        
+        # Call the auth function with correct parameters
+        from auth import change_password as change_pwd_func
+        success, message = change_pwd_func(
+            user_id=user_id,
+            old_password=data.get('current_password'),
+            new_password=data.get('new_password')
+        )
+        
+        return jsonify({
+            'success': success,
+            'message': message
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/admin/users', methods=['GET'])
+@login_required
+@admin_required
+def get_all_users_api():
+    """Get all users for admin dashboard"""
+    try:
+        # This would need to be implemented in auth.py or firebase_config.py
+        # For now, return mock data
+        users = []
+        return jsonify({
+            'success': True,
+            'users': users
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/admin/stats', methods=['GET'])
+@login_required
+@admin_required
+def get_admin_stats():
+    """Get system statistics for admin"""
+    try:
+        # This would aggregate data from Firebase
+        stats = {
+            'total_users': 0,
+            'total_predictions': 0,
+            'total_reports': 0,
+            'positive_predictions': 0
+        }
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
 
 
@@ -1585,10 +1870,11 @@ def predict():
                 'features': features
             }
             user_id = session.get('user_id', 'anonymous')
+            print(f"🔑 Saving prediction for user_id: {user_id}")
             firebase_doc_id = save_patient_data(patient_info, prediction_data, user_id=user_id)
             if firebase_doc_id:
                 response_data['firebase_id'] = firebase_doc_id
-                print(f"✅ Data saved to Firebase with ID: {firebase_doc_id}")
+                print(f"✅ Data saved to Firebase with ID: {firebase_doc_id} for user: {user_id}")
 
                 try:
                     graph_path, graph_url = generate_current_vs_normal_chart(
@@ -2061,17 +2347,130 @@ All Rights Reserved | Confidential Medical Document
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(full_report)
         
+        # Save report info to Firebase if user is logged in
+        try:
+            if 'user_id' in session and data.get('prediction_id'):
+                user_id = session.get('user_id')
+                prediction_id = data.get('prediction_id')
+                
+                # Update the prediction with report info
+                update_data = {
+                    'report_id': patient_id,
+                    'report_path': report_filename,
+                    'report_generated_at': timestamp
+                }
+                update_prediction_record(prediction_id, update_data, user_id)
+                print(f"✅ Report saved to Firebase for prediction {prediction_id}")
+        except Exception as fb_error:
+            print(f"Warning: Could not save report to Firebase: {fb_error}")
+            # Continue anyway - file is saved locally
+        
         return jsonify({
             'success': True,
             'report': full_report,
             'report_file': report_filename,
-            'timestamp': timestamp
+            'timestamp': timestamp,
+            'prediction_id': data.get('prediction_id')
         })
         
     except Exception as e:
         return jsonify({
             'success': False,
             'error': f'Report generation error: {str(e)}'
+        }), 500
+
+
+@app.route('/api/generate_report', methods=['POST'])
+@login_required
+def api_generate_report():
+    """Generate report for a specific prediction ID"""
+    try:
+        data = request.json
+        prediction_id = data.get('prediction_id')
+        
+        if not prediction_id:
+            return jsonify({
+                'success': False,
+                'error': 'Prediction ID is required'
+            }), 400
+        
+        # Get prediction data
+        user_id = session.get('user_id')
+        prediction = get_prediction_by_id(user_id, prediction_id)
+        
+        if not prediction:
+            return jsonify({
+                'success': False,
+                'error': 'Prediction not found'
+            }), 404
+        
+        # Generate report using existing generate_report logic
+        # Prepare data in the format expected by generate_report
+        report_data = {
+            'patient_info': {
+                'name': prediction.get('name', 'Patient'),
+                'age': prediction.get('age', prediction.get('Age', 'N/A')),
+                'sex': prediction.get('sex', 'N/A'),
+                'contact': prediction.get('contact', 'N/A')
+            },
+            'prediction': prediction.get('prediction', 0),
+            'probability': prediction.get('probability', 0.5),
+            'test_values': {
+                'glucose': prediction.get('glucose', prediction.get('Glucose', 0)),
+                'blood_pressure': prediction.get('blood_pressure', prediction.get('BloodPressure', 0)),
+                'bmi': prediction.get('bmi', prediction.get('BMI', 0)),
+                'insulin': prediction.get('insulin', prediction.get('Insulin', 0)),
+                'skin_thickness': prediction.get('skin_thickness', prediction.get('SkinThickness', 0)),
+                'pregnancies': prediction.get('pregnancies', prediction.get('Pregnancies', 0)),
+                'diabetes_pedigree': prediction.get('diabetes_pedigree_function', prediction.get('DiabetesPedigreeFunction', 0))
+            }
+        }
+        
+        # Use the existing report generation prompt
+        if llm is None:
+            return jsonify({
+                'success': False,
+                'error': 'AI Report Generator not available'
+            }), 500
+        
+        # Generate report (simplified version using Groq)
+        prompt = f"""Generate a comprehensive diabetes risk assessment report for:
+        
+Patient: {report_data['patient_info']['name']}
+Age: {report_data['patient_info']['age']} years
+Prediction: {'POSITIVE - High Risk' if report_data['prediction'] == 1 else 'NEGATIVE - Low Risk'}
+Probability: {report_data['probability']*100:.1f}%
+
+Test Results:
+- Glucose: {report_data['test_values']['glucose']} mg/dL
+- Blood Pressure: {report_data['test_values']['blood_pressure']} mmHg
+- BMI: {report_data['test_values']['bmi']}
+- Insulin: {report_data['test_values']['insulin']} μU/mL
+
+Provide a detailed medical assessment with recommendations."""
+
+        response = llm.invoke(prompt)
+        report_content = response.content
+        
+        # Save report
+        reports_dir = 'reports'
+        os.makedirs(reports_dir, exist_ok=True)
+        report_filename = f"report_{prediction_id}_{get_ist_now().strftime('%Y%m%d_%H%M%S')}.txt"
+        report_path = os.path.join(reports_dir, report_filename)
+        
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(report_content)
+        
+        return jsonify({
+            'success': True,
+            'report_id': prediction_id,
+            'report_file': report_filename
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
 
 
@@ -2386,44 +2785,116 @@ def generate_beautiful_pdf(report, report_id):
     
     try:
         # Generate AI-powered personalized analysis using Groq
-        ai_prompt = f"""You are Dr. Sarah Mitchell, MD, FACP, a board-certified endocrinologist with 15 years of experience in diabetes care.
-
-Provide a comprehensive medical assessment for this patient based on the following clinical data:
+        ai_prompt = f"""You are Dr. Sarah Mitchell, MD, FACP, a board-certified endocrinologist with 15 years of experience in diabetes care and metabolic disorders at City General Hospital.
 
 PATIENT CLINICAL DATA:
 - Age: {age} years
 - BMI: {bmi} kg/m²
-- Fasting Glucose: {glucose} mg/dL
-- Blood Pressure (Diastolic): {bp} mmHg
-- Insulin Level: {insulin} μU/mL
-- Skin Thickness: {skin_thickness} mm
-- Diabetes Pedigree Function: {dpf}
-- Pregnancies: {pregnancies}
-- AI Risk Classification: {risk_level.upper()} RISK
-- Model Confidence: {confidence}%
+- Fasting Plasma Glucose: {glucose} mg/dL (Normal: 70-100 mg/dL)
+- Diastolic Blood Pressure: {bp} mmHg (Normal: 60-80 mmHg)
+- 2-Hour Serum Insulin: {insulin} μU/mL (Normal: 16-166 μU/mL)
+- Triceps Skin Thickness: {skin_thickness} mm
+- Diabetes Pedigree Function: {dpf} (Genetic Risk Factor)
+- Pregnancy History: {pregnancies}
+- **AI RISK CLASSIFICATION: {risk_level.upper()} RISK**
+- **MODEL CONFIDENCE: {confidence}%**
 
-Please provide a detailed professional medical assessment with the following sections:
+Generate a comprehensive, detailed medical assessment report with these exact sections:
 
-1. **CLINICAL IMPRESSION** (2-3 sentences): Summarize the patient's overall metabolic status and diabetes risk based on the data.
+**1. CLINICAL IMPRESSION** (4-5 sentences)
+Provide a thorough summary analyzing the patient's overall metabolic health, diabetes risk profile, cardiovascular status, and the clinical significance of their laboratory values. Discuss how their parameters correlate with established diabetes risk criteria. Mention specific concerns based on their age and clinical profile.
 
-2. **KEY FINDINGS** (4-5 bullet points): Highlight the most significant clinical parameters and what they indicate.
+**2. DETAILED LABORATORY ANALYSIS** (Analyze each parameter with 2-3 sentences each)
+For EACH clinical parameter, provide:
+• **Fasting Glucose ({glucose} mg/dL)**: Clinical interpretation, comparison to diagnostic thresholds (100-125 mg/dL prediabetes, ≥126 diabetes), metabolic implications, and immediate concerns if elevated.
+• **BMI ({bmi} kg/m²)**: Classify (underweight/normal/overweight/obese), discuss cardiovascular and metabolic risk, visceral adiposity concerns, and relationship to insulin resistance.
+• **Blood Pressure ({bp} mmHg)**: Evaluate cardiovascular risk, discuss hypertension staging if applicable, relationship to metabolic syndrome, and kidney function implications.
+• **Insulin Level ({insulin} μU/mL)**: Assess for hyperinsulinemia or insulin resistance, discuss pancreatic beta-cell function, and relationship to glucose metabolism.
+• **Diabetes Pedigree Function ({dpf})**: Explain genetic predisposition significance, family history implications, and how this affects long-term risk stratification.
 
-3. **RISK FACTORS IDENTIFIED** (4-5 bullet points): List specific modifiable and non-modifiable risk factors present.
+**3. RISK FACTORS IDENTIFIED** (List 6-8 specific factors with explanations)
+• Modifiable risk factors (lifestyle, diet, exercise, weight) with detailed explanations
+• Non-modifiable risk factors (age, genetics, family history) with clinical context
+• Emerging risk indicators from the clinical data
+• Explain HOW each factor contributes to diabetes development
 
-4. **PERSONALIZED MEDICAL RECOMMENDATIONS** (8-10 specific, actionable recommendations):
-   - Immediate next steps and consultations needed
-   - Lifestyle modifications tailored to this patient
-   - Dietary guidance specific to their glucose and BMI levels
-   - Exercise prescription appropriate for their age and condition
-   - Monitoring schedule and follow-up care
-   - Medication considerations (if applicable)
-   - Preventive measures
+**4. METABOLIC SYNDROME ASSESSMENT** (3-4 sentences)
+Evaluate if patient meets metabolic syndrome criteria (3 of 5: elevated glucose, high BP, elevated triglycerides, low HDL, abdominal obesity). Discuss implications for cardiovascular disease risk and diabetes progression.
 
-5. **IMPORTANT PRECAUTIONS** (4-5 critical warnings): Specific precautions this patient should take based on their risk profile.
+**5. COMPREHENSIVE MEDICAL RECOMMENDATIONS** (12-15 specific, actionable items organized by category)
 
-6. **FOLLOW-UP SCHEDULE**: Specific timeline for next appointments and tests.
+**IMMEDIATE ACTIONS** (Within 1-2 weeks):
+• Specific laboratory tests to order (HbA1c, lipid panel, kidney function, etc.)
+• Specialist referrals needed (endocrinologist, dietitian, etc.)
+• Baseline assessments required
 
-Write in a professional medical tone as you would in an actual patient consultation report. Be specific to this patient's unique clinical data. Use medical terminology appropriately but ensure clarity for patient understanding."""
+**PHARMACOTHERAPY CONSIDERATIONS** (If high risk):
+• Metformin initiation criteria and dosing
+• Other medications to discuss with physician
+• Medication timing and precautions
+
+**DIETARY MODIFICATIONS** (Very specific):
+• Daily carbohydrate targets in grams (breakfast, lunch, dinner, snacks)
+• Specific foods to emphasize (list 8-10 with portions)
+• Foods to eliminate or limit (list 8-10)
+• Meal timing strategies
+• Glycemic index education
+• Portion control guidelines
+• Sample meal plan suggestions
+
+**EXERCISE PRESCRIPTION** (Detailed protocol):
+• Aerobic exercise: type, frequency (days/week), duration (minutes), intensity (heart rate zones)
+• Resistance training: exercises, sets, reps, frequency
+• Flexibility and balance work
+• Progression timeline over 3 months
+• Safety precautions specific to patient's condition
+
+**WEIGHT MANAGEMENT** (If applicable):
+• Target weight based on ideal BMI
+• Realistic timeline (pounds per week/month)
+• Caloric deficit recommendations
+• Behavioral strategies
+
+**MONITORING PROTOCOLS**:
+• Self-monitoring blood glucose: timing, frequency, target ranges
+• Daily health tracking (weight, BP, exercise, diet)
+• Symptom diary instructions
+• Technology tools (apps, devices)
+
+**LIFESTYLE MODIFICATIONS**:
+• Sleep hygiene (7-9 hours nightly)
+• Stress management techniques
+• Smoking cessation if applicable
+• Alcohol consumption guidelines
+• Hydration targets
+
+**6. CRITICAL WARNING SIGNS** (8-10 specific symptoms requiring immediate medical attention)
+List symptoms of hyperglycemia, hypoglycemia (if on medication), diabetic emergencies, cardiovascular events, and other urgent concerns with clear action steps.
+
+**7. FOLLOW-UP CARE PLAN** (Detailed timeline)
+• Next appointments: specific timing (weeks/months) and purpose
+• Laboratory test schedule with specific dates
+• Reassessment points for treatment efficacy
+• Long-term management milestones (3 months, 6 months, 1 year)
+• Criteria for escalating or de-escalating treatment
+
+**8. PROGNOSIS AND PATIENT EDUCATION** (3-4 sentences)
+Discuss expected outcomes with intervention vs. without, emphasize reversibility of prediabetes with lifestyle changes, provide realistic expectations, and motivate patient with evidence-based success rates.
+
+**9. PHYSICIAN'S CLOSING NOTES** (2-3 sentences)
+Professional summary emphasizing the importance of adherence, partnership in care, and encouragement for the patient's health journey.
+
+CRITICAL REQUIREMENTS:
+- Write as if directly addressing the patient in second person where appropriate
+- Use specific numbers, percentages, and quantifiable targets throughout
+- Base all recommendations on current ADA, AACE, and USPSTF guidelines
+- Make every recommendation actionable with clear "how-to" steps
+- Be thorough and comprehensive - this is a professional medical document
+- Maintain empathetic yet direct professional tone
+- Include medical rationale for each major recommendation
+- Format with clear section headers using **bold** text
+- Use bullet points for lists (•)
+- Minimum 2000 words of detailed medical analysis"""
 
         # Call Groq AI for analysis
         ai_response = llm.invoke(ai_prompt)
@@ -3107,6 +3578,82 @@ Deliver this analysis as if writing in a patient's electronic medical record."""
         }), 500
 
 
+@app.route('/user/prediction/<prediction_id>', methods=['GET'])
+@login_required
+def get_single_prediction(prediction_id):
+    """Get a single prediction by ID for the current user"""
+    try:
+        user_id = session.get('user_id')
+        print(f"🔍 Fetching prediction {prediction_id} for user {user_id}")
+        
+        prediction = get_prediction_by_id(prediction_id)
+        
+        if not prediction:
+            print(f"❌ Prediction {prediction_id} not found")
+            return jsonify({
+                'success': False,
+                'error': 'Prediction not found'
+            }), 404
+        
+        # Verify this prediction belongs to the user
+        if prediction.get('user_id') != user_id:
+            print(f"❌ Prediction belongs to different user: {prediction.get('user_id')} != {user_id}")
+            return jsonify({
+                'success': False,
+                'error': 'Unauthorized access'
+            }), 403
+        
+        print(f"✅ Found prediction for {prediction.get('patient_name', prediction.get('name'))}")
+        
+        # Determine prediction value
+        pred_value = 1 if 'High' in str(prediction.get('prediction', '')) or prediction.get('risk_level') == 'high' else 0
+        
+        # Format the response
+        formatted_prediction = {
+            'prediction_id': prediction_id,
+            'patient_name': prediction.get('patient_name', prediction.get('name', 'Unknown')),
+            'prediction': pred_value,
+            'probability': float(prediction.get('confidence', 85)) / 100,
+            'features': {
+                'Pregnancies': int(prediction.get('Pregnancies', prediction.get('pregnancies', 0))),
+                'Glucose': float(prediction.get('Glucose', prediction.get('glucose', 0))),
+                'BloodPressure': float(prediction.get('BloodPressure', prediction.get('blood_pressure', 0))),
+                'SkinThickness': float(prediction.get('SkinThickness', prediction.get('skin_thickness', 0))),
+                'Insulin': float(prediction.get('Insulin', prediction.get('insulin', 0))),
+                'BMI': float(prediction.get('BMI', prediction.get('bmi', 0))),
+                'DiabetesPedigreeFunction': float(prediction.get('DiabetesPedigreeFunction', prediction.get('diabetes_pedigree_function', 0))),
+                'Age': int(prediction.get('Age', prediction.get('age', 0)))
+            }
+        }
+        
+        return jsonify({
+            'success': True,
+            'prediction': formatted_prediction
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in get_single_prediction: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/reports/<filename>', methods=['GET'])
+def serve_report(filename):
+    """Serve generated report files from the reports directory"""
+    try:
+        reports_dir = os.path.join(os.path.dirname(__file__), 'reports')
+        return send_from_directory(reports_dir, filename)
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Report file not found: {str(e)}'
+        }), 404
+
+
 # ------------------- RUN APP -------------------
 if __name__ == '__main__':
     print("\n" + "="*70)
@@ -3117,4 +3664,4 @@ if __name__ == '__main__':
     print(f"✅ Groq AI: {'Connected' if llm else '❌ Not Connected'}")
     print("="*70 + "\n")
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)

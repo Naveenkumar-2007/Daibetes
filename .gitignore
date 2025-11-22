@@ -6,6 +6,24 @@ __pycache__/
 # C extensions
 *.so
 
+# Environment variables
+.env
+.env.local
+.env.production
+.env.mlops.example
+firebase-service-account.json
+
+# Local database
+local_database.json
+
+# Logs
+logs/
+*.log
+mlruns/
+
+# Azure
+.azure/
+
 # Distribution / packaging
 .Python
 build/
@@ -204,6 +222,17 @@ mlflow.db-wal
 mlruns/
 model_registry/
 logs/predictions/*.jsonl
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/.env.local
+frontend/.env.production
+
+# Static reports
+static/reports/*/
 logs/drift_reports/*.json
 logs/performance_reports/*.json
 .dvc/tmp/
