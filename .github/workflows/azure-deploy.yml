@@ -79,18 +79,15 @@ jobs:
 
       - name: Install dependencies to vendor directory
         run: |
-          echo "📦 Installing all dependencies locally to avoid Azure build timeout..."
+          echo "📦 Installing Python dependencies..."
           python -m pip install --upgrade pip setuptools wheel
-          
-          # Install all dependencies to a local directory
-          pip install --target=./.python_packages/lib/site-packages -r requirements.txt
+          pip install -r requirements.txt
           
           # Critical: Verify Flask-CORS is installed
           echo "🔍 Verifying Flask-CORS installation..."
-          python -c "import sys; sys.path.insert(0, './.python_packages/lib/site-packages'); import flask_cors; print(f'✅ Flask-CORS {flask_cors.__version__} installed successfully')"
+          python -c "import flask_cors; print(f'✅ Flask-CORS {flask_cors.__version__} installed successfully')"
           
-          echo "✅ All dependencies installed locally"
-          du -sh ./.python_packages
+          echo "✅ Dependencies verified"
 
       - name: Run syntax check
         run: |
@@ -112,7 +109,6 @@ jobs:
             src/
             templates/
             static/
-            .python_packages/
             !static/app/
           retention-days: 1
 
@@ -164,16 +160,22 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Configure App Settings
+      - name: Configure Runtime and App Settings
         run: |
-          echo "⚙️ Configuring Azure App Settings..."
+          echo "⚙️ Setting Python 3.11 runtime..."
+          az webapp config set \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --linux-fx-version "PYTHON|3.11" \
+            --startup-file "startup.sh"
+          
+          echo "⚙️ Configuring App Settings..."
           az webapp config appsettings set \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --settings \
-              SCM_DO_BUILD_DURING_DEPLOYMENT=false \
-              WEBSITE_RUN_FROM_PACKAGE=0 \
-              ENABLE_ORYX_BUILD=false \
+              SCM_DO_BUILD_DURING_DEPLOYMENT=1 \
+              ENABLE_ORYX_BUILD=1 \
               PYTHONUNBUFFERED=1 \
               PYTHONDONTWRITEBYTECODE=1 \
               PORT=8000

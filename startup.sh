@@ -25,14 +25,6 @@ mkdir -p /tmp/matplotlib
 
 echo "✅ Environment configured"
 
-# Set Python path to include pre-installed packages
-if [ -d ".python_packages/lib/site-packages" ]; then
-    echo "📦 Using pre-installed dependencies from .python_packages..."
-    export PYTHONPATH="${PYTHONPATH}:$(pwd)/.python_packages/lib/site-packages"
-else
-    echo "⚠️  Pre-installed packages not found, will use system packages"
-fi
-
 # Verify critical files exist
 echo "🔍 Verifying application files..."
 if [ ! -f "flask_app.py" ]; then
