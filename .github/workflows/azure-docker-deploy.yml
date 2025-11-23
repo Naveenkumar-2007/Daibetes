@@ -8,7 +8,7 @@ on:
 env:
   AZURE_WEBAPP_NAME: diabetes-predictor-ai
   AZURE_RESOURCE_GROUP: diabetes-predictor-rg
-  REGISTRY_NAME: diabetesregistry
+  REGISTRY_NAME: diabetesacr${{ github.run_number }}
   IMAGE_NAME: diabetes-predictor
   NODE_VERSION: '20'
 
@@ -65,30 +65,37 @@ jobs:
         run: |
           echo "📦 Setting up Azure Container Registry..."
           
-          # Check if registry exists
-          if ! az acr show --name ${{ env.REGISTRY_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} 2>/dev/null; then
-            echo "Creating new registry..."
-            az acr create \
-              --name ${{ env.REGISTRY_NAME }} \
-              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-              --sku Basic \
-              --admin-enabled true
-          else
-            echo "✅ Registry already exists"
-          fi
+          # Get resource group location
+          LOCATION=$(az group show --name ${{ env.AZURE_RESOURCE_GROUP }} --query location -o tsv)
+          echo "Using location: $LOCATION"
+          
+          # Use a simpler registry name
+          REGISTRY_NAME="diabetesacr$(date +%s | tail -c 6)"
+          echo "Registry name: $REGISTRY_NAME"
+          
+          # Create registry
+          az acr create \
+            --name $REGISTRY_NAME \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --location $LOCATION \
+            --sku Basic \
+            --admin-enabled true
+          
+          echo "REGISTRY_NAME=$REGISTRY_NAME" >> $GITHUB_ENV
+          echo "✅ Registry created: $REGISTRY_NAME"
 
       - name: Build and push Docker image
         run: |
           echo "🐳 Building Docker image..."
           
           # Login to ACR
-          az acr login --name ${{ env.REGISTRY_NAME }}
+          az acr login --name $REGISTRY_NAME
           
           # Build image
-          docker build -t ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest .
+          docker build -t $REGISTRY_NAME.azurecr.io/${{ env.IMAGE_NAME }}:latest .
           
           # Push image
-          docker push ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+          docker push $REGISTRY_NAME.azurecr.io/${{ env.IMAGE_NAME }}:latest
           
           echo "✅ Image pushed successfully"
 
@@ -97,15 +104,15 @@ jobs:
           echo "⚙️ Configuring Web App to use Docker container..."
           
           # Get ACR credentials
-          ACR_USERNAME=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query "username" -o tsv)
-          ACR_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query "passwords[0].value" -o tsv)
+          ACR_USERNAME=$(az acr credential show --name $REGISTRY_NAME --query "username" -o tsv)
+          ACR_PASSWORD=$(az acr credential show --name $REGISTRY_NAME --query "passwords[0].value" -o tsv)
           
           # Configure app to use container
           az webapp config container set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --docker-custom-image-name ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest \
-            --docker-registry-server-url https://${{ env.REGISTRY_NAME }}.azurecr.io \
+            --docker-custom-image-name $REGISTRY_NAME.azurecr.io/${{ env.IMAGE_NAME }}:latest \
+            --docker-registry-server-url https://$REGISTRY_NAME.azurecr.io \
             --docker-registry-server-user $ACR_USERNAME \
             --docker-registry-server-password $ACR_PASSWORD
           
@@ -115,7 +122,7 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --settings \
               WEBSITES_ENABLE_APP_SERVICE_STORAGE=false \
-              WEBSITES_PORT=8000 \
+              WEBSITES_PORT=8080 \
               DOCKER_ENABLE_CI=true
 
       - name: Restart Web App
