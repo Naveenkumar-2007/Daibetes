@@ -124,6 +124,12 @@ jobs:
               WEBSITES_ENABLE_APP_SERVICE_STORAGE=false \
               WEBSITES_PORT=8080 \
               DOCKER_ENABLE_CI=true
+          
+          # Remove startup.sh override (let Docker CMD run)
+          az webapp config set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --startup-file ''
 
       - name: Restart Web App
         run: |
