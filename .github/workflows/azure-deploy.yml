@@ -185,15 +185,17 @@ jobs:
           echo "✅ Deployment package created"
           ls -lh deploy.zip
 
-      - name: Deploy to Azure using ZIP Deploy
+      - name: Deploy to Azure using modern deploy command
         run: |
-          echo "🚀 Deploying to Azure Web App using ZIP Deploy..."
-          az webapp deployment source config-zip \
+          echo "🚀 Deploying to Azure Web App..."
+          az webapp deploy \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --src deploy.zip \
-            --timeout 600
-          echo "✅ Deployment completed"
+            --src-path deploy.zip \
+            --type zip \
+            --async true \
+            --timeout 300
+          echo "✅ Deployment initiated"
 
       - name: Restart Web App
         run: |
