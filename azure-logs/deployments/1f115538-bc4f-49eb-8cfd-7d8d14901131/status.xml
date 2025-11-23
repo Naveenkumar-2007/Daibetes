@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>1f115538-bc4f-49eb-8cfd-7d8d14901131</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"86e006aa2b629b6ce74f2602b0c0ed143b424686","repoName":"Naveenkumar-2007/Daibetes","actor":"Naveenkumar-2007","slotName":"production","commitMessage":"feat: Advanced mobile-first responsive redesign with professional UI\n\nComplete UI/UX overhaul with modern design system:\n\nDashboard Improvements:\n- Created responsive_dashboard.css with comprehensive mobile-first design\n- Redesigned user_dashboard.html with hamburger menu navigation\n- Implemented sliding sidebar with smooth animations\n- Added mobile header with sticky positioning\n- Created touch-optimized buttons (minimum 48px targets)\n- Designed responsive stats grid (124 columns)\n- Built action cards with clear CTAs\n- Improved table layout with horizontal scroll\n\nMobile Features:\n- Hamburger menu with slide-in animation\n- Mobile overlay for sidebar backdrop\n- Touch-friendly navigation items\n- Responsive font sizes and spacing\n- Optimized padding and margins\n- Better icon sizing for mobile\n- Improved button layouts\n\nDesign System:\n- CSS custom properties for consistent theming\n- Mobile-first breakpoints (768px, 1024px, 1280px)\n- Professional color palette\n- Smooth transitions and anim"}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-11-20T16:51:10.5435834Z</lastSuccessEndTime>
+  <receivedTime>2025-11-20T16:35:44.1680616Z</receivedTime>
+  <startTime>2025-11-20T16:35:45.9171627Z</startTime>
+  <endTime>2025-11-20T16:51:10.5435834Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

@@ -1,0 +1,18 @@
+<step title="Incoming Request" date="2025-11-20T13:00:14.259" instance="f9df0d" url="/api/zipdeploy?isAsync=true&amp;deployer=GITHUB_ZIP_DEPLOY&amp;message=%7B%22type%22%3A%22deployment%22%2C%22sha%22%3A%222c3244e86cd62b72762f185c1164e8e76007d764%22%2C%22repoName%22%3A%22Naveenkumar-2007%2FDaibetes%22%2C%22actor%22%3A%22Naveenkumar-2007%22%2C%22slotName%22%3A%22production%22%2C%22commitMessage%22%3A%22Fix%3A%20Use%20Azure%20Login%20for%20CI%2FCD%20deployment%22%7D" method="POST" type="request" pid="768,1,19" Host="diabetes-predictor-ai.scm.azurewebsites.net" User-Agent="GITHUBACTIONS_DeployWebAppToAzure_5505dfba186e02ad317b13a393566e5946ff29c53190c5b1b5b3d4d1537ce5ab" Authorization="Bea..." Content-Type="application/octet-stream" Cookie="ARRAffinity=f9df0d7fb514de16eb0635756b937f662826e4dd1f31967a1dd4266cb436e6f5;Path=/;HttpOnly;Secure;Domain=diabetes-predictor-ai.scm.azurewebsites.net; ARRAffinitySameSite=f9df0d7fb514de16eb0635756b937f662826e4dd1f31967a1dd4266cb436e6f5;Path=/;HttpOnly;SameSite=None;Secure;Domain=diabetes-predictor-ai.scm.azurewebsites.net" Transfer-Encoding="chunked" X-ARR-LOG-ID="2b2e55cc-58a8-41b7-afb8-441c0140c477" CLIENT-IP="64.236.135.132:11296" X-SITE-DEPLOYMENT-ID="diabetes-predictor-ai" WAS-DEFAULT-HOSTNAME="diabetes-predictor-ai.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/zipdeploy?isAsync=true&amp;deployer=GITHUB_ZIP_DEPLOY&amp;message=%7B%22type%22%3A%22deployment%22%2C%22sha%22%3A%222c3244e86cd62b72762f185c1164e8e76007d764%22%2C%22repoName%22%3A%22Naveenkumar-2007%2FDaibetes%22%2C%22actor%22%3A%22Naveenkumar-2007%22%2C%22slotName%22%3A%22production%22%2C%22commitMessage%22%3A%22Fix%3A%20Use%20Azure%20Login%20for%20CI%2FCD%20deployment%22%7D" X-Client-IP="64.236.135.132" X-Client-Port="11296" >
+  <step title="Cleanup Xml Logs" date="2025-11-20T13:00:14.307" /><!-- duration: 165ms -->
+  <step title="ZipPushDeploy" date="2025-11-20T13:00:15.356" >
+    <step title="ZipDeploy. Extract zip. Remote build." date="2025-11-20T13:00:15.403" /><!-- duration: 11ms -->
+    <step title="None repository commit" date="2025-11-20T13:00:15.559" >
+      <step title="Commit id: 3520766c-bbd0-49ba-971d-bd89b6468970" date="2025-11-20T13:00:15.580" Message="N/A" AuthorName="N/A" AuthorEmail="N/A" /><!-- duration: 18ms -->
+    </step><!-- duration: 50ms -->
+    <step title="Starting PushDeployAsync" date="2025-11-20T13:00:15.617" /><!-- duration: 11ms -->
+    <step title="Writing artifact to /tmp/zipdeploy/03e87507-5f13-4565-9ca7-f4e39ac623a1.zip" date="2025-11-20T13:00:15.695" >
+      <step title="Writing multipart request body to /tmp/zipdeploy/03e87507-5f13-4565-9ca7-f4e39ac623a1.zip" date="2025-11-20T13:00:15.716" /><!-- duration: 18ms -->
+    </step><!-- duration: 281ms -->
+    <step title="Start deployment in the background" date="2025-11-20T13:00:16.075" >
+      <step title="Acquiring Deployment Lock" date="2025-11-20T13:00:16.159" /><!-- duration: 38ms -->
+      <step title="Acquired Deployment Lock" date="2025-11-20T13:00:16.287" /><!-- duration: 12ms -->
+    </step><!-- duration: 631ms -->
+  </step><!-- duration: 1396ms -->
+  <step title="Outgoing response" date="2025-11-20T13:00:16.800" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 39ms -->
+</step><!-- duration: 2591ms -->

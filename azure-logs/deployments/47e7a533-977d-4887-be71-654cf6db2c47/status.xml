@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>47e7a533-977d-4887-be71-654cf6db2c47</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"2b41ad5592e4bc45b83aa5b045ccf0b4b4af9209","repoName":"Naveenkumar-2007/Daibetes","actor":"Naveenkumar-2007","slotName":"production","commitMessage":"Fix user dashboard routes and add missing predictions route with better error handling"}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-11-21T04:12:56.5396802Z</lastSuccessEndTime>
+  <receivedTime>2025-11-21T03:56:06.7988137Z</receivedTime>
+  <startTime>2025-11-21T03:56:08.1931498Z</startTime>
+  <endTime>2025-11-21T04:12:56.5396802Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

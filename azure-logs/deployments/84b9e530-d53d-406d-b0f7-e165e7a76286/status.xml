@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>84b9e530-d53d-406d-b0f7-e165e7a76286</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"0ba8c58188c0d1ed69bab02287733bff3dcb9bd7","repoName":"Naveenkumar-2007/Daibetes","actor":"Naveenkumar-2007","slotName":"production","commitMessage":"feat: Complete mobile-responsive redesign and IST timezone implementation\n\n- Redesigned entire website with mobile-first approach\n- Added responsive navigation with hamburger menu for mobile\n- Implemented touch-friendly UI elements (48px minimum touch targets)\n- Added zoom prevention for consistent mobile experience\n- Created comprehensive mobile-first CSS (styles_mobile.css)\n- Updated all HTML templates with responsive viewport settings\n- Improved form layouts with responsive grid system\n- Enhanced button and input styling for mobile devices\n\n- Implemented IST (Indian Standard Time) timezone support\n- Added pytz timezone configuration for Asia/Kolkata\n- Updated all datetime.now() calls to use get_ist_now()\n- Fixed report timestamps to show correct IST time\n- Updated patient ID generation with IST timestamps\n- Corrected all user creation/update timestamps\n\nResponsive breakpoints:\n- Mobile: &lt;768px (single column, hamburger menu)\n- Tablet: 768px-1023px (2-column layouts)\n- Desktop: 1024p"}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-11-20T14:51:14.6511744Z</lastSuccessEndTime>
+  <receivedTime>2025-11-20T14:35:33.1013001Z</receivedTime>
+  <startTime>2025-11-20T14:35:34.9539195Z</startTime>
+  <endTime>2025-11-20T14:51:14.6511744Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

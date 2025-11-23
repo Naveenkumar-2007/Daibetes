@@ -1,0 +1,4 @@
+<step title="Incoming Request" date="2025-11-20T12:52:38.486" instance="f9df0d" url="/dump" method="GET" type="request" pid="769,1,19" Host="diabetes-predictor-ai.scm.azurewebsites.net" User-Agent="AZURECLI/2.77.0 (MSI)" Accept-Encoding="identity" Authorization="Bea..." x-ms-client-request-id="c550b1e6-c60f-11f0-8112-94bb4333034a" X-ARR-LOG-ID="c550b1e6-c60f-11f0-8112-94bb4333034a" CLIENT-IP="27.60.173.241:58393" X-SITE-DEPLOYMENT-ID="diabetes-predictor-ai" WAS-DEFAULT-HOSTNAME="diabetes-predictor-ai.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/dump" X-Client-IP="27.60.173.241" X-Client-Port="58393" >
+  <step title="Cleanup Xml Logs" date="2025-11-20T12:52:38.491" /><!-- duration: 8ms -->
+  <step title="Outgoing response" date="2025-11-20T12:52:40.366" type="response" statusCode="200" statusText="OK" /><!-- duration: 3ms -->
+</step><!-- duration: 1887ms -->

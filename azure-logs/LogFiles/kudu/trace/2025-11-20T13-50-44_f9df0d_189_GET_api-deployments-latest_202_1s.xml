@@ -1,0 +1,11 @@
+<step title="Incoming Request" date="2025-11-20T13:50:44.256" instance="f9df0d" url="/api/deployments/latest?deployer=GITHUB_ZIP_DEPLOY&amp;time=2025-11-20_13-45-52Z" method="GET" type="request" pid="768,1,28" Host="diabetes-predictor-ai.scm.azurewebsites.net" User-Agent="GITHUBACTIONS_DeployWebAppToAzure_5505dfba186e02ad317b13a393566e5946ff29c53190c5b1b5b3d4d1537ce5ab" Authorization="Bea..." Content-Type="application/json; charset=utf-8" Cookie="ARRAffinity=f9df0d7fb514de16eb0635756b937f662826e4dd1f31967a1dd4266cb436e6f5;Path=/;HttpOnly;Secure;Domain=diabetes-predictor-ai.scm.azurewebsites.net; ARRAffinitySameSite=f9df0d7fb514de16eb0635756b937f662826e4dd1f31967a1dd4266cb436e6f5;Path=/;HttpOnly;SameSite=None;Secure;Domain=diabetes-predictor-ai.scm.azurewebsites.net" Content-Length="0" X-ARR-LOG-ID="907d5a39-2b1c-4d17-bb6e-c8be17e0cab6" CLIENT-IP="64.236.134.33:20418" X-SITE-DEPLOYMENT-ID="diabetes-predictor-ai" WAS-DEFAULT-HOSTNAME="diabetes-predictor-ai.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest?deployer=GITHUB_ZIP_DEPLOY&amp;time=2025-11-20_13-45-52Z" X-Client-IP="64.236.134.33" X-Client-Port="20418" >
+  <step title="Cleanup Xml Logs" date="2025-11-20T13:50:44.265" >
+    <step title="Cleanup Infos" date="2025-11-20T13:50:44.306" totalFiles="200" totalCleanup="40" /><!-- duration: 215ms -->
+  </step><!-- duration: 302ms -->
+  <step title="DeploymentService.GetResult" date="2025-11-20T13:50:44.600" >
+    <step title="DeploymentService.GetLatestDeployment" date="2025-11-20T13:50:44.618" >
+      <step title="DeploymentManager.GetResults" date="2025-11-20T13:50:44.666" /><!-- duration: 546ms -->
+    </step><!-- duration: 661ms -->
+  </step><!-- duration: 730ms -->
+  <step title="Outgoing response" date="2025-11-20T13:50:45.380" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 84ms -->
+</step><!-- duration: 1219ms -->

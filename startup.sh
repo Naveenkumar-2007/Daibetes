@@ -25,6 +25,10 @@ mkdir -p /tmp/matplotlib
 
 echo "✅ Environment configured"
 
+# CRITICAL: Install Flask-CORS explicitly (Azure Oryx sometimes misses it)
+echo "📦 Installing Flask-CORS..."
+pip install --no-cache-dir Flask-CORS==4.0.0
+
 # Verify critical files exist
 echo "🔍 Verifying application files..."
 if [ ! -f "flask_app.py" ]; then

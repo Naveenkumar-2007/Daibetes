@@ -1,0 +1,11 @@
+<step title="Incoming Request" date="2025-11-22T18:27:18.931" instance="f9df0d" url="/api/deployments/latest" method="GET" type="request" pid="768,1,15" Accept="*/*" Host="diabetes-predictor-ai.scm.azurewebsites.net" User-Agent="AZURECLI/2.77.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bea..." x-ms-client-request-id="cb2a4c27-c7d0-11f0-a34a-94bb4333034a" X-ARR-LOG-ID="cb2a4c27-c7d0-11f0-a34a-94bb4333034a" CLIENT-IP="223.187.124.229:61285" X-SITE-DEPLOYMENT-ID="diabetes-predictor-ai" WAS-DEFAULT-HOSTNAME="diabetes-predictor-ai.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest" X-Client-IP="223.187.124.229" X-Client-Port="61285" >
+  <step title="Cleanup Xml Logs" date="2025-11-22T18:27:18.973" >
+    <step title="Cleanup Infos" date="2025-11-22T18:27:19.175" totalFiles="1002" totalCleanup="842" /><!-- duration: 174ms -->
+  </step><!-- duration: 399ms -->
+  <step title="DeploymentService.GetResult" date="2025-11-22T18:27:19.488" >
+    <step title="DeploymentService.GetLatestDeployment" date="2025-11-22T18:27:19.545" >
+      <step title="DeploymentManager.GetResults" date="2025-11-22T18:27:19.564" /><!-- duration: 5504ms -->
+    </step><!-- duration: 5717ms -->
+  </step><!-- duration: 5851ms -->
+  <step title="Outgoing response" date="2025-11-22T18:27:25.376" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 19ms -->
+</step><!-- duration: 6484ms -->

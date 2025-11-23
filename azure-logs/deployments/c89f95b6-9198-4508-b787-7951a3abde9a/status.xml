@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>c89f95b6-9198-4508-b787-7951a3abde9a</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"d7742429702df44063bd02edb97405dce6c465eb","repoName":"Naveenkumar-2007/Daibetes","actor":"Naveenkumar-2007","slotName":"production","commitMessage":"Complete professional patient portal redesign with perfect mobile navigation"}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-11-21T03:22:45.8536338Z</lastSuccessEndTime>
+  <receivedTime>2025-11-21T03:07:59.9552845Z</receivedTime>
+  <startTime>2025-11-21T03:08:01.3758467Z</startTime>
+  <endTime>2025-11-21T03:22:45.8536338Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>
