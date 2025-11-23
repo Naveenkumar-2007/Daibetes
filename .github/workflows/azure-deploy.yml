@@ -37,9 +37,31 @@ jobs:
           mkdir -p static/app
           cp -r frontend/dist/* static/app/
 
-      - name: Create deployment package
+      - name: Create minimal deployment package
         run: |
-          zip -r deploy.zip . -x "*.git*" "node_modules/*" "frontend/node_modules/*" "frontend/src/*" "*.md" "*.ps1" "azure-logs/*"
+          mkdir -p deploy_package
+          # Copy only essential files
+          cp -r static deploy_package/
+          cp -r templates deploy_package/
+          cp -r src deploy_package/
+          cp -r artifacts deploy_package/ 2>/dev/null || true
+          cp flask_app.py deploy_package/
+          cp auth.py deploy_package/
+          cp firebase_config.py deploy_package/
+          cp report_generator.py deploy_package/
+          cp retrain_model.py deploy_package/ 2>/dev/null || true
+          cp requirements.txt deploy_package/
+          cp startup.sh deploy_package/
+          cp .deployment deploy_package/ 2>/dev/null || true
+          # Create logs directories
+          mkdir -p deploy_package/logs/predictions deploy_package/logs/drift_reports deploy_package/logs/performance_reports
+          mkdir -p deploy_package/data/raw deploy_package/data/processed
+          mkdir -p deploy_package/reports
+          # Create deployment zip
+          cd deploy_package
+          zip -r ../deploy.zip .
+          cd ..
+          ls -lh deploy.zip
 
       - name: Azure Login
         uses: azure/login@v1
@@ -53,16 +75,25 @@ jobs:
             --name diabetes-predictor-ai \
             --src-path deploy.zip \
             --type zip \
+            --timeout 600 \
             --async false
+        timeout-minutes: 15
 
-      - name: Restart Web App
+      - name: Restart and verify Web App
         run: |
+          echo "Restarting web app..."
           az webapp restart \
             --resource-group diabetes-predictor-rg \
             --name diabetes-predictor-ai
-
-      - name: Check deployment
-        run: |
+          
           echo "Waiting for app to start..."
-          sleep 30
-          curl -f https://diabetes-predictor-ai.azurewebsites.net || echo "App not responding yet"
+          sleep 45
+          
+          echo "Checking app status..."
+          az webapp show \
+            --resource-group diabetes-predictor-rg \
+            --name diabetes-predictor-ai \
+            --query "state" -o tsv
+          
+          echo "Testing endpoint..."
+          curl -sL -w "%{http_code}" https://diabetes-predictor-ai.azurewebsites.net -o /dev/null || echo "App warming up..."
