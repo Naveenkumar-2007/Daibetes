@@ -1,32 +1,45 @@
-# Core application
+# ============================================================================
+# Production Dependencies for Diabetes Health Predictor
+# Python 3.11+ required
+# ============================================================================
+
+# Core Web Framework
 Flask==3.0.3
+Flask-CORS==4.0.0
 gunicorn==21.2.0
 python-dotenv==1.0.1
 Werkzeug==3.0.1
 
-# Model inference
+# Machine Learning & Data Science
 numpy==1.26.4
 scikit-learn==1.4.2
 xgboost==2.0.3
 scipy==1.13.0
+pandas==2.2.2
 
-# External services
+# External Services
 requests==2.32.3
 firebase-admin==6.5.0
 google-auth==2.33.0
 
-# LLM integration
+# LLM Integration
 langchain==0.2.12
 langchain-core==0.2.27
 langchain-community==0.2.10
 langchain-groq==0.1.6
 groq==0.9.0
 
-# Reporting
+# Reporting & Visualization
 reportlab==4.1.0
-pandas==2.2.2
 matplotlib==3.8.4
 pytz==2023.3
 
 # Security
 bcrypt==4.1.2
+
+# ============================================================================
+# CRITICAL: Flask-CORS must be installed for CORS support
+# If deployment fails with "ModuleNotFoundError: No module named 'flask_cors'"
+# ensure POST_BUILD_COMMAND is set in Azure App Settings
+# ============================================================================
+
