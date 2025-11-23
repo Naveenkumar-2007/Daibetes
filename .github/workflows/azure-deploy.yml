@@ -17,83 +17,43 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Build frontend
         run: |
           cd frontend
           npm ci
           npm run build
-          cd ..
-          mkdir -p static/app
-          cp -r frontend/dist/* static/app/
-
-      - name: Create minimal deployment package
-        run: |
-          mkdir -p deploy_package
-          # Copy only essential files
-          cp -r static deploy_package/
-          cp -r templates deploy_package/
-          cp -r src deploy_package/
-          cp -r artifacts deploy_package/ 2>/dev/null || true
-          cp flask_app.py deploy_package/
-          cp auth.py deploy_package/
-          cp firebase_config.py deploy_package/
-          cp report_generator.py deploy_package/
-          cp retrain_model.py deploy_package/ 2>/dev/null || true
-          cp requirements.txt deploy_package/
-          cp startup.sh deploy_package/
-          cp .deployment deploy_package/ 2>/dev/null || true
-          # Create logs directories
-          mkdir -p deploy_package/logs/predictions deploy_package/logs/drift_reports deploy_package/logs/performance_reports
-          mkdir -p deploy_package/data/raw deploy_package/data/processed
-          mkdir -p deploy_package/reports
-          # Create deployment zip
-          cd deploy_package
-          zip -r ../deploy.zip .
-          cd ..
-          ls -lh deploy.zip
+          mkdir -p ../static/app
+          cp -r dist/* ../static/app/
 
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Web App
+      - name: Deploy using Oryx build
         run: |
-          az webapp deploy \
+          # This method uses Azure's Oryx build system which is faster
+          az webapp up \
             --resource-group diabetes-predictor-rg \
             --name diabetes-predictor-ai \
-            --src-path deploy.zip \
-            --type zip \
-            --timeout 600 \
-            --async false
-        timeout-minutes: 15
+            --runtime "PYTHON:3.11" \
+            --sku B1 \
+            --logs
 
-      - name: Restart and verify Web App
+      - name: Check deployment
         run: |
-          echo "Restarting web app..."
-          az webapp restart \
-            --resource-group diabetes-predictor-rg \
-            --name diabetes-predictor-ai
-          
-          echo "Waiting for app to start..."
-          sleep 45
-          
-          echo "Checking app status..."
-          az webapp show \
-            --resource-group diabetes-predictor-rg \
-            --name diabetes-predictor-ai \
-            --query "state" -o tsv
-          
-          echo "Testing endpoint..."
-          curl -sL -w "%{http_code}" https://diabetes-predictor-ai.azurewebsites.net -o /dev/null || echo "App warming up..."
+          echo "Waiting for app..."
+          sleep 30
+          curl -I https://diabetes-predictor-ai.azurewebsites.net || true
