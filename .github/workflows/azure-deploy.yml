@@ -169,25 +169,38 @@ jobs:
             --linux-fx-version "PYTHON|3.11" \
             --startup-file "startup.sh"
           
-          echo "⚙️ Configuring App Settings..."
+          echo "⚙️ Configuring App Settings to skip build..."
           az webapp config appsettings set \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --settings \
-              SCM_DO_BUILD_DURING_DEPLOYMENT=1 \
-              ENABLE_ORYX_BUILD=1 \
+              SCM_DO_BUILD_DURING_DEPLOYMENT=0 \
+              ENABLE_ORYX_BUILD=0 \
+              WEBSITE_SKIP_BUNDLE_INSTALL=1 \
               PYTHONUNBUFFERED=1 \
               PYTHONDONTWRITEBYTECODE=1 \
               PORT=8000
 
       - name: Create deployment package
         run: |
-          echo "📦 Creating deployment zip..."
-          zip -r deploy.zip . -x ".git/*" ".github/*" "node_modules/*" "frontend/node_modules/*" "__pycache__/*" "*.pyc"
+          echo "📦 Creating clean deployment package..."
+          
+          # Remove unnecessary files to reduce size and deployment time
+          rm -rf azure-logs app-logs logs .git .github
+          rm -rf tests data/raw data/processed mlruns mlflow.db
+          rm -rf *.zip *.ps1 *.md azure-publish-profile*.xml
+          rm -rf frontend/src frontend/node_modules frontend/public
+          rm -f frontend/*.json frontend/*.ts frontend/*.js frontend/.gitignore
+          
+          # Keep only essential files
+          zip -r deploy.zip . \
+            -x ".git/*" ".github/*" "node_modules/*" "*.pyc" "__pycache__/*" \
+            -x "frontend/node_modules/*" "frontend/src/*" "*.md" "*.ps1" "*.zip"
+          
           echo "✅ Deployment package created"
           ls -lh deploy.zip
 
-      - name: Deploy to Azure using modern deploy command
+      - name: Deploy to Azure
         run: |
           echo "🚀 Deploying to Azure Web App..."
           az webapp deploy \
@@ -196,16 +209,9 @@ jobs:
             --src-path deploy.zip \
             --type zip \
             --async false \
-            --timeout 300
-          echo "✅ Deployment completed"
-          
-      - name: Verify deployment files
-        run: |
-          echo "🔍 Checking deployed files..."
-          az webapp ssh \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --command "ls -la /home/site/wwwroot/ && test -d /home/site/wwwroot/.python_packages && echo '✅ Python packages found' || echo '⚠️ Python packages not found'" || echo "SSH check failed, continuing..."
+            --timeout 600 \
+            --restart true
+          echo "✅ Deployment completed successfully"
 
       - name: Restart Web App
         run: |

@@ -25,6 +25,16 @@ mkdir -p /tmp/matplotlib
 
 echo "✅ Environment configured"
 
+# Install dependencies if not already installed
+if [ ! -d "/home/site/wwwroot/antenv" ]; then
+    echo "📦 Installing dependencies (first run)..."
+    python3.11 -m pip install --upgrade pip --user
+    python3.11 -m pip install -r requirements.txt --user --no-cache-dir
+    echo "✅ Dependencies installed"
+else
+    echo "📦 Dependencies already installed"
+fi
+
 # Verify critical files exist
 echo "🔍 Verifying application files..."
 if [ ! -f "flask_app.py" ]; then
