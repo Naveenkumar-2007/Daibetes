@@ -17,9 +17,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
+
 # Ensure runtime directories exist
 RUN mkdir -p /app/reports
 
 EXPOSE 8080
 
-CMD exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 2 --threads 2 --timeout 120 --access-logfile - --error-logfile - flask_app:app
+CMD ["/app/entrypoint.sh"]
