@@ -77,18 +77,20 @@ jobs:
           echo "✅ Flask-CORS found in requirements.txt"
           cat requirements.txt
 
-      - name: Install and verify dependencies
+      - name: Install dependencies to vendor directory
         run: |
+          echo "📦 Installing all dependencies locally to avoid Azure build timeout..."
           python -m pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
+          
+          # Install all dependencies to a local directory
+          pip install --target=./.python_packages/lib/site-packages -r requirements.txt
           
           # Critical: Verify Flask-CORS is installed
           echo "🔍 Verifying Flask-CORS installation..."
-          python -c "import flask_cors; print(f'✅ Flask-CORS {flask_cors.__version__} installed successfully')" || {
-            echo "❌ Flask-CORS import failed! Installing manually..."
-            pip install --force-reinstall Flask-CORS==4.0.0
-            python -c "import flask_cors; print(f'✅ Flask-CORS {flask_cors.__version__} now installed')"
-          }
+          python -c "import sys; sys.path.insert(0, './.python_packages/lib/site-packages'); import flask_cors; print(f'✅ Flask-CORS {flask_cors.__version__} installed successfully')"
+          
+          echo "✅ All dependencies installed locally"
+          du -sh ./.python_packages
 
       - name: Run syntax check
         run: |
@@ -110,6 +112,7 @@ jobs:
             src/
             templates/
             static/
+            .python_packages/
             !static/app/
           retention-days: 1
 
@@ -168,10 +171,9 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --settings \
-              SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+              SCM_DO_BUILD_DURING_DEPLOYMENT=false \
               WEBSITE_RUN_FROM_PACKAGE=0 \
-              ENABLE_ORYX_BUILD=true \
-              POST_BUILD_COMMAND="pip install --no-cache-dir Flask-CORS==4.0.0" \
+              ENABLE_ORYX_BUILD=false \
               PYTHONUNBUFFERED=1 \
               PYTHONDONTWRITEBYTECODE=1 \
               PORT=8000
