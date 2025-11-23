@@ -193,9 +193,17 @@ jobs:
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --src-path deploy.zip \
             --type zip \
-            --async true \
+            --async false \
             --timeout 300
-          echo "✅ Deployment initiated"
+          echo "✅ Deployment completed"
+          
+      - name: Verify deployment files
+        run: |
+          echo "🔍 Checking deployed files..."
+          az webapp ssh \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --command "ls -la /home/site/wwwroot/ && test -d /home/site/wwwroot/.python_packages && echo '✅ Python packages found' || echo '⚠️ Python packages not found'" || echo "SSH check failed, continuing..."
 
       - name: Restart Web App
         run: |
