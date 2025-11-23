@@ -65,8 +65,8 @@ jobs:
         run: |
           echo "📦 Setting up Azure Container Registry..."
           
-          # Get resource group location
-          LOCATION=$(az group show --name ${{ env.AZURE_RESOURCE_GROUP }} --query location -o tsv)
+          # Use Central India (same as Web App location)
+          LOCATION="centralindia"
           echo "Using location: $LOCATION"
           
           # Use a simpler registry name
