@@ -1761,7 +1761,11 @@ def predict():
             if dpf < 0 or dpf > 3:
                 raise ValueError('Diabetes Pedigree Function must be 0-3')
             
-            features = [pregnancies, glucose, bloodPressure, skinThickness, insulin, bmi, dpf, age]
+            # Feature engineering (matching training pipeline)
+            bmi_age_interaction = bmi * age
+            glucose_insulin_ratio = glucose / (insulin + 1)  # Add 1 to avoid division by zero
+            
+            features = [pregnancies, glucose, bloodPressure, skinThickness, insulin, bmi, dpf, age, bmi_age_interaction, glucose_insulin_ratio]
             
         except ValueError as ve:
             return jsonify({
@@ -1820,7 +1824,9 @@ def predict():
                 'Insulin': features[4],
                 'BMI': features[5],
                 'Diabetes Pedigree Function': features[6],
-                'Age': features[7]
+                'Age': features[7],
+                'BMI_Age_Interaction': features[8],
+                'Glucose_Insulin_Ratio': features[9]
             }
         }
         
