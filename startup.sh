@@ -3,7 +3,11 @@
 # Azure App Service startup script for Flask application
 # This script runs when the container starts
 
+set -e  # Exit on error
+
 echo "🚀 Starting Diabetes Health Predictor..."
+echo "📅 Timestamp: $(date)"
+echo "🖥️  Hostname: $(hostname)"
 
 # Create necessary directories
 echo "📁 Creating directories..."
@@ -21,13 +25,30 @@ mkdir -p /tmp/matplotlib
 
 echo "✅ Environment configured"
 
+# Verify critical files exist
+echo "🔍 Verifying application files..."
+if [ ! -f "flask_app.py" ]; then
+    echo "❌ ERROR: flask_app.py not found!"
+    exit 1
+fi
+
+if [ ! -f "requirements.txt" ]; then
+    echo "⚠️  WARNING: requirements.txt not found!"
+fi
+
+echo "✅ Application files verified"
+
 # Determine the port (Azure sets PORT environment variable)
 PORT="${PORT:-8000}"
 
 echo "🌐 Starting Gunicorn on port $PORT..."
+echo "⚙️  Configuration:"
+echo "   - Workers: 4"
+echo "   - Threads: 2"
+echo "   - Timeout: 600s"
 
 # Start Gunicorn with optimized settings for Azure
-gunicorn --bind=0.0.0.0:$PORT \
+exec gunicorn --bind=0.0.0.0:$PORT \
          --workers=4 \
          --threads=2 \
          --timeout=600 \
@@ -38,6 +59,6 @@ gunicorn --bind=0.0.0.0:$PORT \
          --error-logfile=- \
          --log-level=info \
          --worker-class=sync \
+         --preload \
          flask_app:app
 
-echo "❌ Gunicorn stopped unexpectedly"

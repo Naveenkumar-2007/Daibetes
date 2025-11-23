@@ -130,18 +130,36 @@ jobs:
           echo "📦 Deployment package contents:"
           ls -la
           echo "📂 Static files:"
-          ls -la static/
+          if [ -d "static" ]; then
+            ls -la static/
+          else
+            echo "⚠️ static directory not found"
+          fi
           echo "📂 Templates:"
-          ls -la templates/
-          echo "✅ Package verified"
+          if [ -d "templates" ]; then
+            ls -la templates/
+          else
+            echo "⚠️ templates directory not found"
+          fi
+          echo "📂 Required files:"
+          for file in flask_app.py requirements.txt startup.sh; do
+            if [ -f "$file" ]; then
+              echo "✅ $file exists"
+            else
+              echo "❌ $file missing"
+            fi
+          done
+          echo "✅ Package verification complete"
 
       - name: 🚀 Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          slot-name: 'production'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: .
+          package: '.'
+          clean: true
 
       - name: 🔍 Post-deployment health check
         run: |
