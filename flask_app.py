@@ -1495,7 +1495,7 @@ def admin_all_reports():
 @app.route('/admin/get_all_reports', methods=['GET'])
 @admin_required
 def get_all_reports():
-    """API endpoint to get all medical reports from all patients"""
+    """API endpoint to get all medical reports from all patients with complete details"""
     try:
         import firebase_config
         firebase_config.initialize_firebase()
@@ -1514,12 +1514,54 @@ def get_all_reports():
         reports_list = []
         for report_id, report_data in all_predictions.items():
             if isinstance(report_data, dict):
-                report_data['id'] = report_id
-                report_data['report_id'] = report_id
-                reports_list.append(report_data)
+                # Ensure all required fields are present
+                report = {
+                    'id': report_id,
+                    'report_id': report_id,
+                    'prediction_id': report_id,
+                    # Patient info
+                    'patient_name': report_data.get('patient_name', 'Unknown'),
+                    'age': report_data.get('age', 0),
+                    'sex': report_data.get('sex', 'N/A'),
+                    'contact': report_data.get('contact', 'N/A'),
+                    'address': report_data.get('address', 'N/A'),
+                    # Prediction results
+                    'prediction': report_data.get('prediction', 'N/A'),
+                    'result': report_data.get('result', 'N/A'),
+                    'risk_level': report_data.get('risk_level', 'unknown'),
+                    'confidence': report_data.get('confidence', 0),
+                    'probability': report_data.get('confidence', 0) / 100 if report_data.get('confidence') else 0,
+                    # Medical parameters
+                    'Pregnancies': report_data.get('Pregnancies', 0),
+                    'Glucose': report_data.get('Glucose', 0),
+                    'BloodPressure': report_data.get('BloodPressure', 0),
+                    'SkinThickness': report_data.get('SkinThickness', 0),
+                    'Insulin': report_data.get('Insulin', 0),
+                    'BMI': report_data.get('BMI', 0),
+                    'DiabetesPedigreeFunction': report_data.get('DiabetesPedigreeFunction', 0),
+                    'Age': report_data.get('Age', report_data.get('age', 0)),
+                    # Lifestyle factors
+                    'smoking': report_data.get('smoking', 0),
+                    'physical_activity': report_data.get('physical_activity', 0),
+                    'alcohol_intake': report_data.get('alcohol_intake', 0),
+                    'family_history': report_data.get('family_history', 0),
+                    'sleep_hours': report_data.get('sleep_hours', 7),
+                    # Metadata
+                    'user_id': report_data.get('user_id', 'anonymous'),
+                    'timestamp': report_data.get('timestamp', report_data.get('created_at', '')),
+                    'created_at': report_data.get('created_at', report_data.get('timestamp', '')),
+                    'date': report_data.get('date', ''),
+                    'time': report_data.get('time', ''),
+                    # Additional data
+                    'features': report_data.get('features', []),
+                    'has_report': True
+                }
+                reports_list.append(report)
         
         # Sort by timestamp (most recent first)
-        reports_list.sort(key=lambda x: x.get('created_at', 0), reverse=True)
+        reports_list.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        
+        print(f"✅ Admin: Retrieved {len(reports_list)} reports with complete details")
         
         return jsonify({
             'success': True,
@@ -1528,7 +1570,9 @@ def get_all_reports():
         })
     
     except Exception as e:
-        print(f"Error fetching reports: {e}")
+        print(f"❌ Error fetching reports: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1624,16 +1668,66 @@ def get_all_patients():
 @app.route('/admin/patient/<user_id>/predictions', methods=['GET'])
 @admin_required
 def get_patient_predictions(user_id):
-    """Get all predictions for a specific patient"""
+    """Get all predictions for a specific patient with complete details"""
     try:
+        print(f"📊 Admin fetching predictions for user: {user_id}")
+        
         # Get all predictions for this user
         history = get_patient_history(user_id=user_id, limit=1000)
+        
+        # Enhance each prediction with complete data
+        enhanced_history = []
+        for pred in history:
+            enhanced_pred = {
+                'id': pred.get('id', pred.get('prediction_id', pred.get('report_id', 'N/A'))),
+                'prediction_id': pred.get('prediction_id', pred.get('id', pred.get('report_id', 'N/A'))),
+                'report_id': pred.get('report_id', pred.get('id', pred.get('prediction_id', 'N/A'))),
+                # Patient info
+                'patient_name': pred.get('patient_name', 'Unknown'),
+                'age': pred.get('age', 0),
+                'sex': pred.get('sex', 'N/A'),
+                'contact': pred.get('contact', 'N/A'),
+                'address': pred.get('address', 'N/A'),
+                # Prediction results
+                'prediction': pred.get('prediction', 'N/A'),
+                'result': pred.get('result', 'N/A'),
+                'risk_level': pred.get('risk_level', 'unknown'),
+                'confidence': pred.get('confidence', 0),
+                'probability': pred.get('probability', pred.get('confidence', 0) / 100 if pred.get('confidence') else 0),
+                # Medical parameters
+                'Pregnancies': pred.get('Pregnancies', 0),
+                'Glucose': pred.get('Glucose', 0),
+                'BloodPressure': pred.get('BloodPressure', 0),
+                'SkinThickness': pred.get('SkinThickness', 0),
+                'Insulin': pred.get('Insulin', 0),
+                'BMI': pred.get('BMI', 0),
+                'DiabetesPedigreeFunction': pred.get('DiabetesPedigreeFunction', 0),
+                'Age': pred.get('Age', pred.get('age', 0)),
+                # Lifestyle factors
+                'smoking': pred.get('smoking', 0),
+                'physical_activity': pred.get('physical_activity', 0),
+                'alcohol_intake': pred.get('alcohol_intake', 0),
+                'family_history': pred.get('family_history', 0),
+                'sleep_hours': pred.get('sleep_hours', 7),
+                # Metadata
+                'user_id': pred.get('user_id', user_id),
+                'timestamp': pred.get('timestamp', pred.get('created_at', '')),
+                'created_at': pred.get('created_at', pred.get('timestamp', '')),
+                'date': pred.get('date', ''),
+                'time': pred.get('time', ''),
+                # Additional
+                'features': pred.get('features', []),
+                'has_report': True
+            }
+            enhanced_history.append(enhanced_pred)
         
         # Get user info
         import firebase_config
         firebase_config.initialize_firebase()
         user_ref = firebase_config.db_ref.child('users').child(user_id)
         user_data = user_ref.get()
+        
+        print(f"✅ Admin: Retrieved {len(enhanced_history)} predictions for user {user_id}")
         
         return jsonify({
             'success': True,
@@ -1642,12 +1736,20 @@ def get_patient_predictions(user_id):
                 'full_name': user_data.get('full_name', 'N/A') if user_data else 'N/A',
                 'username': user_data.get('username', 'N/A') if user_data else 'N/A',
                 'email': user_data.get('email', 'N/A') if user_data else 'N/A',
+                'created_at': user_data.get('created_at', 'N/A') if user_data else 'N/A',
             },
-            'predictions': history
+            'predictions': enhanced_history,
+            'total_count': len(enhanced_history)
         })
     
     except Exception as e:
-        print(f"Error fetching patient predictions: {e}")
+        print(f"❌ Error fetching patient predictions: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
         return jsonify({
             'success': False,
             'error': str(e)
