@@ -22,26 +22,29 @@ export default function SettingsPage() {
     confirmPassword: ''
   })
 
-  const [message, setMessage] = useState({ type: '', text: '' })
-  const [loading, setLoading] = useState(false)
+  // Separate state for each form
+  const [profileMessage, setProfileMessage] = useState({ type: '', text: '' })
+  const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' })
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [passwordLoading, setPasswordLoading] = useState(false)
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setMessage({ type: '', text: '' })
+    setProfileLoading(true)
+    setProfileMessage({ type: '', text: '' })
 
     try {
       const response = await userAPI.updateProfile(profileData)
 
       if (response.data.success) {
-        setMessage({ type: 'success', text: 'Profile updated successfully!' })
+        setProfileMessage({ type: 'success', text: 'Profile updated successfully!' })
       } else {
-        setMessage({ type: 'error', text: response.data.message || 'Update failed' })
+        setProfileMessage({ type: 'error', text: response.data.message || 'Update failed' })
       }
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update profile' })
+      setProfileMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update profile' })
     } finally {
-      setLoading(false)
+      setProfileLoading(false)
     }
   }
 
@@ -49,17 +52,17 @@ export default function SettingsPage() {
     e.preventDefault()
     
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setMessage({ type: 'error', text: 'New passwords do not match' })
+      setPasswordMessage({ type: 'error', text: 'New passwords do not match' })
       return
     }
 
     if (passwordData.newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'Password must be at least 6 characters' })
+      setPasswordMessage({ type: 'error', text: 'Password must be at least 6 characters' })
       return
     }
 
-    setLoading(true)
-    setMessage({ type: '', text: '' })
+    setPasswordLoading(true)
+    setPasswordMessage({ type: '', text: '' })
 
     try {
       const response = await userAPI.changePassword(
@@ -68,15 +71,15 @@ export default function SettingsPage() {
       )
 
       if (response.data.success) {
-        setMessage({ type: 'success', text: 'Password changed successfully!' })
+        setPasswordMessage({ type: 'success', text: 'Password changed successfully!' })
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
       } else {
-        setMessage({ type: 'error', text: response.data.message || 'Password change failed' })
+        setPasswordMessage({ type: 'error', text: response.data.message || 'Password change failed' })
       }
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to change password' })
+      setPasswordMessage({ type: 'error', text: error.response?.data?.message || 'Failed to change password' })
     } finally {
-      setLoading(false)
+      setPasswordLoading(false)
     }
   }
 
@@ -110,17 +113,17 @@ export default function SettingsPage() {
           <p className="text-gray-600">Manage your profile and account preferences</p>
         </motion.div>
 
-        {message.text && (
+        {(profileMessage.text || passwordMessage.text) && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className={`mb-6 p-4 rounded-lg ${
-              message.type === 'success' 
+              (profileMessage.type === 'success' || passwordMessage.type === 'success')
                 ? 'bg-green-50 border border-green-200 text-green-700' 
                 : 'bg-red-50 border border-red-200 text-red-700'
             }`}
           >
-            {message.text}
+            {profileMessage.text || passwordMessage.text}
           </motion.div>
         )}
 
@@ -197,9 +200,9 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <button type="submit" className="btn-primary w-full" disabled={loading}>
+            <button type="submit" className="btn-primary w-full" disabled={profileLoading}>
               <Save className="w-5 h-5 mr-2" />
-              {loading ? 'Saving...' : 'Save Changes'}
+              {profileLoading ? 'Saving...' : 'Save Changes'}
             </button>
           </form>
         </motion.div>
@@ -258,9 +261,9 @@ export default function SettingsPage() {
               />
             </div>
 
-            <button type="submit" className="btn-primary w-full bg-purple-600 hover:bg-purple-700" disabled={loading}>
+            <button type="submit" className="btn-primary w-full bg-purple-600 hover:bg-purple-700" disabled={passwordLoading}>
               <Lock className="w-5 h-5 mr-2" />
-              {loading ? 'Changing...' : 'Change Password'}
+              {passwordLoading ? 'Changing...' : 'Change Password'}
             </button>
           </form>
         </motion.div>
