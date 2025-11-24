@@ -1,0 +1,94 @@
+name: Deploy to Azure App Service
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: diabetes-predictor-ai
+  AZURE_RESOURCE_GROUP: diabetes-predictor-rg
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: 📦 Build frontend
+      run: |
+        cd frontend
+        npm ci --prefer-offline --no-audit
+        npm run build
+        echo "✅ Frontend built successfully"
+        
+    - name: 📂 Move frontend to static
+      run: |
+        rm -rf static/app
+        mkdir -p static/app
+        cp -r frontend/dist/* static/app/
+        echo "✅ Frontend moved to static/app"
+
+    - name: 🔐 Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: 📦 Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: 🚀 Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        package: .
+
+    - name: ⚙️ Configure App Settings
+      run: |
+        az webapp config appsettings set \
+          --name ${{ env.AZURE_WEBAPP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --settings \
+            GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
+            FIREBASE_DATABASE_URL="${{ secrets.FIREBASE_DATABASE_URL }}" \
+            SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+            FLASK_ENV=production \
+            PYTHONUNBUFFERED=1 \
+            SCM_DO_BUILD_DURING_DEPLOYMENT=true
+
+    - name: 🔧 Set startup command
+      run: |
+        az webapp config set \
+          --name ${{ env.AZURE_WEBAPP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --startup-file "gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 600 flask_app:app"
+
+    - name: 🔄 Restart app
+      run: |
+        az webapp restart \
+          --name ${{ env.AZURE_WEBAPP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+
+    - name: ✅ Deployment complete
+      run: |
+        echo "🎉 Deployment successful!"
+        echo "🌍 App URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        echo "📋 Check logs: az webapp log tail -n ${{ env.AZURE_WEBAPP_NAME }} -g ${{ env.AZURE_RESOURCE_GROUP }}"

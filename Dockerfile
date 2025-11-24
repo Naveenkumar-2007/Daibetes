@@ -1,28 +1,46 @@
 # syntax=docker/dockerfile:1
+# Multi-stage build for optimized Azure deployment
 FROM python:3.11-slim
 
+# Environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=8080
+    PORT=8000 \
+    FLASK_ENV=production
 
 WORKDIR /app
 
-# Install system dependencies required by reportlab fonts
+# Install system dependencies
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libfreetype6 libjpeg62-turbo \
+    && apt-get install -y --no-install-recommends \
+       libfreetype6 \
+       libjpeg62-turbo \
+       libpng16-16 \
+       curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements and install Python dependencies
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir gunicorn
 
+# Copy application code
 COPY . .
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/reports /app/logs /app/artifacts \
+    && chmod -R 755 /app/reports /app/logs /app/artifacts
 
 # Make entrypoint executable
 RUN chmod +x /app/entrypoint.sh
 
-# Ensure runtime directories exist
-RUN mkdir -p /app/reports
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
-EXPOSE 8080
+# Expose port
+EXPOSE 8000
 
+# Use entrypoint script
 CMD ["/app/entrypoint.sh"]

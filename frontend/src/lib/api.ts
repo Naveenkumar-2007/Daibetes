@@ -8,6 +8,24 @@ const api = axios.create({
   }
 })
 
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      // Server responded with error status
+      console.error('API Error:', error.response.status, error.response.data)
+    } else if (error.request) {
+      // Request made but no response
+      console.error('Network Error: No response from server')
+    } else {
+      // Other errors
+      console.error('Request Error:', error.message)
+    }
+    return Promise.reject(error)
+  }
+)
+
 // Auth APIs
 export const authAPI = {
   login: (username: string, password: string) =>

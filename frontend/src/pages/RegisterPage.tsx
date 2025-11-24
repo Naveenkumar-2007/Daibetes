@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { UserPlus, Mail, Lock, User } from 'lucide-react'
+import { UserPlus, Mail, Lock, User, Eye, EyeOff } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { authAPI } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -17,9 +17,39 @@ export default function RegisterPage() {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Client-side validation
+    if (!formData.name.trim()) {
+      setError('Please enter your full name')
+      return
+    }
+    
+    if (!formData.email.trim()) {
+      setError('Please enter your email address')
+      return
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address')
+      return
+    }
+    
+    if (!formData.password) {
+      setError('Please enter a password')
+      return
+    }
+    
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long')
+      return
+    }
     
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match')
@@ -30,23 +60,25 @@ export default function RegisterPage() {
     setError('')
     
     try {
-      const username = formData.email.split('@')[0]
+      const username = formData.email.split('@')[0].toLowerCase()
       const response = await authAPI.register({
-        full_name: formData.name,
+        full_name: formData.name.trim(),
         username: username,
-        email: formData.email,
+        email: formData.email.toLowerCase().trim(),
         password: formData.password
       })
       
       if (response.data.success) {
-        // Auto-login after registration using auth context
-        await login(username, formData.password)
+        // Auto-login after registration using the email (since login now accepts email)
+        await login(formData.email.toLowerCase().trim(), formData.password)
         navigate('/dashboard')
       } else {
         setError(response.data.message || 'Registration failed')
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Registration failed. Please try again.')
+      console.error('Registration error:', err)
+      const errorMessage = err.response?.data?.message || err.message || 'Registration failed. Please try again.'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -57,6 +89,10 @@ export default function RegisterPage() {
       ...formData,
       [e.target.name]: e.target.value
     })
+    // Clear error when user starts typing
+    if (error) {
+      setError('')
+    }
   }
 
   return (
@@ -77,9 +113,13 @@ export default function RegisterPage() {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6"
+            >
               {error}
-            </div>
+            </motion.div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -126,15 +166,26 @@ export default function RegisterPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="input-field pl-10"
+                  className="input-field pl-10 pr-10"
                   placeholder="••••••••"
                   required
+                  minLength={6}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
+              {formData.password && formData.password.length < 6 && (
+                <p className="text-xs text-red-600 mt-1">Password must be at least 6 characters</p>
+              )}
             </div>
 
             <div>
@@ -144,15 +195,25 @@ export default function RegisterPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="input-field pl-10"
+                  className="input-field pl-10 pr-10"
                   placeholder="••••••••"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
+              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
+              )}
             </div>
 
             <div className="flex items-start">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { BarChart, Bar, LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { motion } from 'framer-motion'
 import { TrendingUp, Activity, AlertCircle, Download, ArrowLeft } from 'lucide-react'
 import { predictionAPI } from '../lib/api'
@@ -65,12 +65,16 @@ export default function GraphsPage() {
     )
   }
 
-  // Prepare comparison data
+  // Prepare comparison data for ALL features
   const normalRanges = {
     Glucose: 100,
     BloodPressure: 80,
     BMI: 24.9,
-    Insulin: 166
+    Insulin: 166,
+    SkinThickness: 20,
+    Pregnancies: 3,
+    DiabetesPedigreeFunction: 0.5,
+    Age: 33
   }
 
   const comparisonData = [
@@ -97,41 +101,87 @@ export default function GraphsPage() {
       'Your Value': data.features.Insulin,
       'Normal Range': normalRanges.Insulin,
       unit: 'μU/mL'
+    },
+    {
+      parameter: 'Skin Thickness',
+      'Your Value': data.features.SkinThickness,
+      'Normal Range': normalRanges.SkinThickness,
+      unit: 'mm'
+    },
+    {
+      parameter: 'Pregnancies',
+      'Your Value': data.features.Pregnancies,
+      'Normal Range': normalRanges.Pregnancies,
+      unit: 'count'
+    },
+    {
+      parameter: 'DPF',
+      'Your Value': data.features.DiabetesPedigreeFunction,
+      'Normal Range': normalRanges.DiabetesPedigreeFunction,
+      unit: 'value'
+    },
+    {
+      parameter: 'Age',
+      'Your Value': data.features.Age,
+      'Normal Range': normalRanges.Age,
+      unit: 'years'
     }
   ]
 
-  // Radar chart data for all features
+  // Radar chart data for all features (normalized to 0-100 scale)
   const radarData = [
     {
       parameter: 'Glucose',
-      value: (data.features.Glucose / 200) * 100,
+      value: Math.min((data.features.Glucose / 200) * 100, 100),
       fullMark: 100
     },
     {
-      parameter: 'BP',
-      value: (data.features.BloodPressure / 150) * 100,
+      parameter: 'Blood Pressure',
+      value: Math.min((data.features.BloodPressure / 150) * 100, 100),
       fullMark: 100
     },
     {
       parameter: 'BMI',
-      value: (data.features.BMI / 50) * 100,
+      value: Math.min((data.features.BMI / 50) * 100, 100),
       fullMark: 100
     },
     {
       parameter: 'Insulin',
-      value: (data.features.Insulin / 500) * 100,
+      value: Math.min((data.features.Insulin / 500) * 100, 100),
       fullMark: 100
     },
     {
       parameter: 'Skin Thickness',
-      value: (data.features.SkinThickness / 100) * 100,
+      value: Math.min((data.features.SkinThickness / 100) * 100, 100),
+      fullMark: 100
+    },
+    {
+      parameter: 'Pregnancies',
+      value: Math.min((data.features.Pregnancies / 15) * 100, 100),
+      fullMark: 100
+    },
+    {
+      parameter: 'DPF',
+      value: Math.min((data.features.DiabetesPedigreeFunction / 2) * 100, 100),
       fullMark: 100
     },
     {
       parameter: 'Age',
-      value: (data.features.Age / 100) * 100,
+      value: Math.min((data.features.Age / 100) * 100, 100),
       fullMark: 100
     }
+  ]
+
+  // All features detailed data
+  const allFeaturesData = [
+    { feature: 'Glucose', value: data.features.Glucose, unit: 'mg/dL', normal: '70-100', status: data.features.Glucose > 125 ? 'High' : data.features.Glucose < 70 ? 'Low' : 'Normal' },
+    { feature: 'Blood Pressure', value: data.features.BloodPressure, unit: 'mmHg', normal: '60-80', status: data.features.BloodPressure > 90 ? 'High' : data.features.BloodPressure < 60 ? 'Low' : 'Normal' },
+    { feature: 'BMI', value: data.features.BMI.toFixed(1), unit: 'kg/m²', normal: '18.5-24.9', status: data.features.BMI > 30 ? 'Obese' : data.features.BMI > 25 ? 'Overweight' : data.features.BMI < 18.5 ? 'Underweight' : 'Normal' },
+    { feature: 'Insulin', value: data.features.Insulin, unit: 'μU/mL', normal: '16-166', status: data.features.Insulin > 166 ? 'High' : data.features.Insulin === 0 ? 'Not Measured' : 'Normal' },
+    { feature: 'Skin Thickness', value: data.features.SkinThickness, unit: 'mm', normal: '10-50', status: data.features.SkinThickness === 0 ? 'Not Measured' : 'Measured' },
+    { feature: 'Pregnancies', value: data.features.Pregnancies, unit: 'count', normal: '0-15', status: 'Recorded' },
+    { feature: 'Diabetes Pedigree Function', value: data.features.DiabetesPedigreeFunction.toFixed(3), unit: 'value', normal: '0.078-2.42', status: data.features.DiabetesPedigreeFunction > 1 ? 'High Risk' : 'Lower Risk' },
+    { feature: 'Age', value: data.features.Age, unit: 'years', normal: '21-81', status: data.features.Age > 45 ? 'Higher Risk Age' : 'Lower Risk Age' }
   ]
 
   // Feature importance
@@ -200,8 +250,8 @@ export default function GraphsPage() {
         </motion.div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Comparison Bar Chart */}
+        <div className="grid grid-cols-1 gap-6 mb-6">
+          {/* Comprehensive Comparison Bar Chart - ALL Features */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -210,63 +260,78 @@ export default function GraphsPage() {
           >
             <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <TrendingUp className="w-6 h-6 text-blue-600" />
-              Your Values vs Normal Range
+              Your Values vs Normal Range - All Features
             </h3>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={400}>
               <BarChart data={comparisonData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="parameter" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="parameter" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={100} />
                 <YAxis />
-                <Tooltip />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px'
+                  }}
+                />
                 <Legend />
-                <Bar dataKey="Your Value" fill="#3b82f6" />
-                <Bar dataKey="Normal Range" fill="#10b981" />
+                <Bar dataKey="Your Value" fill="#3b82f6" name="Your Value" />
+                <Bar dataKey="Normal Range" fill="#10b981" name="Normal Range" />
               </BarChart>
             </ResponsiveContainer>
           </motion.div>
 
-          {/* Radar Chart */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white rounded-2xl shadow-lg p-6"
-          >
-            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <Activity className="w-6 h-6 text-purple-600" />
-              Health Parameters Overview
-            </h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <RadarChart data={radarData}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="parameter" />
-                <PolarRadiusAxis angle={90} domain={[0, 100]} />
-                <Radar name="Your Values" dataKey="value" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} />
-                <Tooltip />
-              </RadarChart>
-            </ResponsiveContainer>
-          </motion.div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Radar Chart - All Parameters */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-white rounded-2xl shadow-lg p-6"
+            >
+              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Activity className="w-6 h-6 text-purple-600" />
+                Health Parameters Overview
+              </h3>
+              <ResponsiveContainer width="100%" height={350}>
+                <RadarChart data={radarData}>
+                  <PolarGrid stroke="#e5e7eb" />
+                  <PolarAngleAxis dataKey="parameter" tick={{ fontSize: 11 }} />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10 }} />
+                  <Radar 
+                    name="Your Values (%)" 
+                    dataKey="value" 
+                    stroke="#8b5cf6" 
+                    fill="#8b5cf6" 
+                    fillOpacity={0.6} 
+                  />
+                  <Tooltip />
+                  <Legend />
+                </RadarChart>
+              </ResponsiveContainer>
+            </motion.div>
 
-          {/* Feature Importance */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-white rounded-2xl shadow-lg p-6"
-          >
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Feature Importance in Prediction</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={featureImportance} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" domain={[0, 100]} />
-                <YAxis dataKey="feature" type="category" />
-                <Tooltip />
-                <Bar dataKey="importance" fill="#f59e0b" />
-              </BarChart>
-            </ResponsiveContainer>
-          </motion.div>
+            {/* Feature Importance */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white rounded-2xl shadow-lg p-6"
+            >
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Feature Importance in Prediction</h3>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={featureImportance} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="feature" type="category" tick={{ fontSize: 11 }} width={100} />
+                  <Tooltip />
+                  <Bar dataKey="importance" fill="#f59e0b" name="Importance (%)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </motion.div>
+          </div>
 
-          {/* Detailed Metrics */}
+          {/* Detailed Metrics Table */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -274,13 +339,39 @@ export default function GraphsPage() {
             className="bg-white rounded-2xl shadow-lg p-6"
           >
             <h3 className="text-xl font-bold text-gray-900 mb-4">Detailed Metrics</h3>
-            <div className="space-y-4">
-              {Object.entries(data.features).map(([key, value]) => (
-                <div key={key} className="flex justify-between items-center border-b pb-2">
-                  <span className="text-gray-700 font-medium">{key}</span>
-                  <span className="text-gray-900 font-semibold">{value}</span>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b-2 border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Feature</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Your Value</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Unit</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Normal Range</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {allFeaturesData.map((item, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.feature}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900 font-semibold">{item.value}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{item.unit}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{item.normal}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          item.status.includes('High') || item.status.includes('Obese') 
+                            ? 'bg-red-100 text-red-700'
+                            : item.status.includes('Normal') || item.status.includes('Lower')
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </motion.div>
         </div>

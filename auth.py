@@ -361,7 +361,7 @@ def authenticate_user(username, password):
     Authenticate user credentials
     
     Args:
-        username: Username
+        username: Username or email
         password: Plain text password
     
     Returns:
@@ -381,14 +381,21 @@ def authenticate_user(username, password):
         return False, "Database not initialized", None
     
     try:
-        # Find user by username
         users_ref = db.collection('users')
-        users = users_ref.where('username', '==', username).limit(1).stream()
-        
         user_doc = None
+        
+        # Try to find user by username first
+        users = users_ref.where('username', '==', username).limit(1).stream()
         for user in users:
             user_doc = user
             break
+        
+        # If not found by username, try to find by email
+        if not user_doc:
+            users = users_ref.where('email', '==', username.lower()).limit(1).stream()
+            for user in users:
+                user_doc = user
+                break
         
         if not user_doc:
             return False, "Invalid username or password", None

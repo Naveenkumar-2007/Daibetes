@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { LogIn, User, Lock } from 'lucide-react'
+import { LogIn, User, Lock, Eye, EyeOff } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../lib/auth'
 
@@ -9,18 +9,33 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
   const { login } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Client-side validation
+    if (!username.trim()) {
+      setError('Please enter your username or email')
+      return
+    }
+    
+    if (!password.trim()) {
+      setError('Please enter your password')
+      return
+    }
+    
     setLoading(true)
     setError('')
     
     try {
-      await login(username, password)
+      await login(username.trim(), password)
+      // Navigate to dashboard after successful login
       navigate('/dashboard')
     } catch (err: any) {
+      console.error('Login error:', err)
       setError(err.message || 'Login failed. Please check your credentials.')
     } finally {
       setLoading(false)
@@ -45,9 +60,13 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6"
+            >
               {error}
-            </div>
+            </motion.div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -60,7 +79,10 @@ export default function LoginPage() {
                 <input
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => {
+                    setUsername(e.target.value)
+                    if (error) setError('')
+                  }}
                   className="input-field pl-10"
                   placeholder="username or email"
                   required
@@ -75,13 +97,23 @@ export default function LoginPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input-field pl-10"
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    if (error) setError('')
+                  }}
+                  className="input-field pl-10 pr-10"
                   placeholder="••••••••"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 

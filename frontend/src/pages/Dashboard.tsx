@@ -53,20 +53,39 @@ export default function Dashboard() {
   })
 
   useEffect(() => {
+    console.log('Dashboard mounted, user:', user)
+    
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn('Dashboard loading timeout - forcing completion')
+        setLoading(false)
+        setError('Dashboard took too long to load. Some data may be unavailable.')
+      }
+    }, 10000) // 10 second timeout
+    
     fetchDashboardData()
+    
+    return () => clearTimeout(timeoutId)
   }, [])
 
   const fetchDashboardData = async () => {
     try {
       setError(null)
+      console.log('Fetching dashboard data...')
+      
       // Fetch latest prediction
       const latestResponse = await dashboardAPI.getLatestPrediction()
+      console.log('Latest prediction response:', latestResponse.data)
+      
       if (latestResponse.data.success && latestResponse.data.prediction) {
         setLatestPrediction(latestResponse.data.prediction)
       }
 
       // Fetch all predictions for comprehensive overview
       const allResponse = await dashboardAPI.getAllPredictions()
+      console.log('All predictions response:', allResponse.data)
+      
       if (allResponse.data.success && allResponse.data.predictions) {
         const predictions = allResponse.data.predictions
         setAllPredictions(predictions)
@@ -85,18 +104,23 @@ export default function Dashboard() {
 
         // Generate glucose trend from all predictions
         if (predictions.length > 0) {
-          const glucoseTrend = predictions.slice(0, 7).reverse().map((p: AllPrediction) => ({
+          const glucoseTrend = predictions.slice(0, 10).reverse().map((p: AllPrediction) => ({
             date: new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             glucose: p.glucose,
             bmi: p.bmi,
-            insulin: p.insulin
+            insulin: p.insulin,
+            bloodPressure: p.blood_pressure,
+            skinThickness: p.skin_thickness,
+            pregnancies: p.pregnancies,
+            dpf: p.dpf
           }))
           setGlucoseData(glucoseTrend)
         }
       }
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error)
-      setError(error.message || 'Failed to load dashboard data')
+      console.error('Error response:', error.response?.data)
+      setError(error.response?.data?.message || error.message || 'Failed to load dashboard data')
     } finally {
       setLoading(false)
     }
@@ -323,11 +347,11 @@ export default function Dashboard() {
                 className="card"
               >
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">Health Metrics Trend</h3>
+                  <h3 className="text-xl font-bold text-gray-900">Health Metrics Trend - All Features</h3>
                   <TrendingUp className="w-5 h-5 text-blue-600" />
                 </div>
                 
-                <div className="h-80">
+                <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={glucoseData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -353,7 +377,7 @@ export default function Dashboard() {
                         type="monotone" 
                         dataKey="glucose" 
                         stroke="#3b82f6" 
-                        strokeWidth={3}
+                        strokeWidth={2}
                         dot={{ fill: '#3b82f6', r: 4 }}
                         name="Glucose (mg/dL)"
                       />
@@ -361,7 +385,7 @@ export default function Dashboard() {
                         type="monotone" 
                         dataKey="bmi" 
                         stroke="#10b981" 
-                        strokeWidth={3}
+                        strokeWidth={2}
                         dot={{ fill: '#10b981', r: 4 }}
                         name="BMI"
                       />
@@ -369,9 +393,41 @@ export default function Dashboard() {
                         type="monotone" 
                         dataKey="insulin" 
                         stroke="#f59e0b" 
-                        strokeWidth={3}
+                        strokeWidth={2}
                         dot={{ fill: '#f59e0b', r: 4 }}
                         name="Insulin (μU/mL)"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="bloodPressure" 
+                        stroke="#ef4444" 
+                        strokeWidth={2}
+                        dot={{ fill: '#ef4444', r: 4 }}
+                        name="Blood Pressure (mmHg)"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="skinThickness" 
+                        stroke="#8b5cf6" 
+                        strokeWidth={2}
+                        dot={{ fill: '#8b5cf6', r: 4 }}
+                        name="Skin Thickness (mm)"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="pregnancies" 
+                        stroke="#ec4899" 
+                        strokeWidth={2}
+                        dot={{ fill: '#ec4899', r: 4 }}
+                        name="Pregnancies"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="dpf" 
+                        stroke="#06b6d4" 
+                        strokeWidth={2}
+                        dot={{ fill: '#06b6d4', r: 4 }}
+                        name="Diabetes Pedigree Function"
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -392,31 +448,79 @@ export default function Dashboard() {
                   <UserIcon className="w-5 h-5 text-gray-400" />
                 </div>
                 
-                <div className="mb-4">
-                  <p className="text-gray-600 text-sm">Patient Name</p>
-                  <p className="text-xl font-bold text-gray-900">{latestPrediction.patient_name}</p>
+                <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                  <p className="text-gray-600 text-sm mb-1">Patient Name</p>
+                  <p className="text-2xl font-bold text-gray-900">{latestPrediction.patient_name}</p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
+                      latestPrediction.prediction === 1 
+                        ? 'bg-red-100 text-red-700' 
+                        : 'bg-green-100 text-green-700'
+                    }`}>
+                      {latestPrediction.prediction === 1 ? 'High Risk' : 'Low Risk'}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      • {(latestPrediction.probability * 100).toFixed(0)}% Confidence
+                    </span>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  <div className="space-y-2">
-                    <span className="text-gray-600 text-sm">Age</span>
-                    <div className="text-2xl font-extrabold text-gray-900">{latestPrediction.age}</div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-gray-600 text-xs">Age</span>
+                    <div className="text-2xl font-bold text-gray-900">{latestPrediction.age}</div>
+                    <span className="text-gray-500 text-xs">years</span>
                   </div>
 
-                  <div className="space-y-2">
-                    <span className="text-gray-600 text-sm">BMI</span>
-                    <div className="text-2xl font-extrabold text-gray-900">{latestPrediction.bmi?.toFixed(1)}</div>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-gray-600 text-xs">BMI</span>
+                    <div className="text-2xl font-bold text-gray-900">{latestPrediction.bmi?.toFixed(1)}</div>
+                    <span className="text-gray-500 text-xs">kg/m²</span>
                   </div>
 
-                  <div className="space-y-2">
-                    <span className="text-gray-600 text-sm">Glucose</span>
-                    <div className="text-2xl font-extrabold text-gray-900">{latestPrediction.glucose}</div>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-gray-600 text-xs">Glucose</span>
+                    <div className="text-2xl font-bold text-gray-900">{latestPrediction.glucose}</div>
+                    <span className="text-gray-500 text-xs">mg/dL</span>
                   </div>
 
-                  <div className="space-y-2">
-                    <span className="text-gray-600 text-sm">BP</span>
-                    <div className="text-2xl font-extrabold text-gray-900">{latestPrediction.blood_pressure}</div>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-gray-600 text-xs">Blood Pressure</span>
+                    <div className="text-2xl font-bold text-gray-900">{latestPrediction.blood_pressure}</div>
+                    <span className="text-gray-500 text-xs">mmHg</span>
                   </div>
+
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-gray-600 text-xs">Insulin</span>
+                    <div className="text-2xl font-bold text-gray-900">{latestPrediction.insulin}</div>
+                    <span className="text-gray-500 text-xs">μU/mL</span>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-gray-600 text-xs">Skin Thickness</span>
+                    <div className="text-2xl font-bold text-gray-900">{allPredictions[0]?.skin_thickness || 0}</div>
+                    <span className="text-gray-500 text-xs">mm</span>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-gray-600 text-xs">Pregnancies</span>
+                    <div className="text-2xl font-bold text-gray-900">{allPredictions[0]?.pregnancies || 0}</div>
+                    <span className="text-gray-500 text-xs">count</span>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-gray-600 text-xs">DPF</span>
+                    <div className="text-2xl font-bold text-gray-900">{allPredictions[0]?.dpf?.toFixed(3) || '0.000'}</div>
+                    <span className="text-gray-500 text-xs">value</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-600">
+                    <strong>Overall Assessment:</strong> {latestPrediction.prediction === 1 
+                      ? 'This patient shows elevated diabetes risk factors. Immediate medical consultation and lifestyle modifications are recommended.' 
+                      : 'This patient shows normal diabetes risk levels. Continue maintaining a healthy lifestyle and regular check-ups.'}
+                  </p>
                 </div>
               </motion.div>
             )}
@@ -443,7 +547,11 @@ export default function Dashboard() {
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Risk</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Glucose</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">BMI</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Report</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Insulin</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">BP</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Skin</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Preg</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">DPF</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
                       </tr>
                     </thead>
@@ -467,19 +575,23 @@ export default function Dashboard() {
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">{pred.glucose}</td>
                           <td className="px-4 py-3 text-sm text-gray-600">{pred.bmi.toFixed(1)}</td>
-                          <td className="px-4 py-3">
-                            {pred.has_report ? (
-                              <span className="text-green-600 text-sm">✓ Generated</span>
-                            ) : (
-                              <span className="text-gray-400 text-sm">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-sm text-gray-600">{pred.insulin}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{pred.blood_pressure}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{pred.skin_thickness}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{pred.pregnancies}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{pred.dpf.toFixed(3)}</td>
+                          <td className="px-4 py-3 flex gap-2">
                             <Link 
                               to={`/prediction/${pred.prediction_id}`}
-                              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                              className="text-blue-600 hover:text-blue-700 text-xs font-medium"
                             >
-                              View Details
+                              Details
+                            </Link>
+                            <Link 
+                              to={`/graphs/${pred.prediction_id}`}
+                              className="text-purple-600 hover:text-purple-700 text-xs font-medium"
+                            >
+                              Graphs
                             </Link>
                           </td>
                         </tr>

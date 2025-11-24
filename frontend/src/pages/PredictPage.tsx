@@ -129,10 +129,10 @@ export default function PredictPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
                 onClick={() => setResult(null)}
-                className="btn-primary flex items-center gap-2"
+                className="btn-primary flex items-center justify-center gap-2"
               >
                 <Activity className="w-5 h-5" />
                 New Prediction
@@ -147,7 +147,7 @@ export default function PredictPage() {
                       return
                     }
 
-                    // Generate report using Flask /report endpoint
+                    // Generate and download report
                     const reportResponse = await reportAPI.generateReportWithData({
                       prediction_id: predId,
                       patient_info: result.patient_info,
@@ -188,10 +188,10 @@ export default function PredictPage() {
                   }
                 }}
                 disabled={generatingReport}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center gap-2 disabled:opacity-50"
+                className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-green-800 transition-all font-semibold flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg"
               >
                 <Download className="w-5 h-5" />
-                {generatingReport ? 'Generating...' : 'Download Report'}
+                {generatingReport ? 'Generating Report...' : 'Download Report'}
               </button>
               <button
                 onClick={() => {

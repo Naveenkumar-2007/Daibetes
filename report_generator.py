@@ -22,9 +22,9 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 
 def generate_clinical_parameter_chart(report_data):
     """Generate traditional bar chart with parameter values and reference ranges"""
-    fig, ax = plt.subplots(figsize=(10, 6), facecolor='white')
+    fig, ax = plt.subplots(figsize=(12, 6), facecolor='white')
     
-    # Extract parameters
+    # Extract parameters - ALL 8 FEATURES
     params = {
         'Glucose\n(mg/dL)': {
             'value': float(report_data.get('Glucose', 0)),
@@ -54,6 +54,24 @@ def generate_clinical_parameter_chart(report_data):
             'value': float(report_data.get('SkinThickness', 0)),
             'normal_min': 10,
             'normal_max': 50,
+            'warning': 60
+        },
+        'Pregnancies': {
+            'value': float(report_data.get('Pregnancies', 0)),
+            'normal_min': 0,
+            'normal_max': 5,
+            'warning': 10
+        },
+        'DPF': {
+            'value': float(report_data.get('DiabetesPedigreeFunction', 0)),
+            'normal_min': 0.0,
+            'normal_max': 0.5,
+            'warning': 1.5
+        },
+        'Age\n(years)': {
+            'value': float(report_data.get('Age', 0)),
+            'normal_min': 20,
+            'normal_max': 40,
             'warning': 60
         }
     }
@@ -176,21 +194,23 @@ def generate_risk_gauge_chart(confidence, risk_level):
 
 def generate_parameter_radar_chart(report_data):
     """Generate radar/spider chart showing all health parameters"""
-    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(projection='polar'), facecolor='white')
+    fig, ax = plt.subplots(figsize=(9, 9), subplot_kw=dict(projection='polar'), facecolor='white')
     
-    # Parameters (normalized to 0-100 scale)
-    categories = ['Glucose\nControl', 'Blood\nPressure', 'Weight\nManagement', 
-                  'Insulin\nLevel', 'Genetic\nRisk', 'Age\nFactor']
+    # Parameters (normalized to 0-100 scale) - ALL 8 FEATURES
+    categories = ['Glucose', 'Blood\nPressure', 'BMI', 'Insulin', 
+                  'Skin\nThickness', 'Pregnancies', 'DPF', 'Age']
     
     # Normalize values to 0-100 scale
     glucose = min(100, (float(report_data.get('Glucose', 100)) / 200) * 100)
     bp = min(100, (float(report_data.get('BloodPressure', 80)) / 120) * 100)
     bmi = min(100, (float(report_data.get('BMI', 25)) / 40) * 100)
     insulin = min(100, (float(report_data.get('Insulin', 100)) / 300) * 100)
+    skin = min(100, (float(report_data.get('SkinThickness', 20)) / 60) * 100)
+    pregnancies = min(100, (float(report_data.get('Pregnancies', 0)) / 15) * 100)
     dpf = min(100, float(report_data.get('DiabetesPedigreeFunction', 0.5)) * 50)
     age = min(100, (float(report_data.get('Age', 40)) / 80) * 100)
     
-    values = [glucose, bp, bmi, insulin, dpf, age]
+    values = [glucose, bp, bmi, insulin, skin, pregnancies, dpf, age]
     
     # Number of variables
     N = len(categories)
@@ -203,7 +223,7 @@ def generate_parameter_radar_chart(report_data):
     ax.fill(angles, values, alpha=0.25, color='#3b82f6')
     
     # Ideal/target range
-    target_values = [50, 50, 50, 50, 30, 50]  # Target ranges
+    target_values = [50, 50, 50, 50, 50, 30, 30, 50]  # Target ranges for 8 features
     target_values += target_values[:1]
     ax.plot(angles, target_values, 'o--', linewidth=2, color='#10b981', 
             label='Target Range', alpha=0.7)

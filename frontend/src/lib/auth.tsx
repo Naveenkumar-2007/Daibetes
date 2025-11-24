@@ -40,11 +40,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const login = async (username: string, password: string) => {
-    const response = await authAPI.login(username, password)
-    if (response.data.success) {
-      await checkAuth()
-    } else {
-      throw new Error(response.data.message || 'Login failed')
+    try {
+      const response = await authAPI.login(username, password)
+      if (response.data.success) {
+        await checkAuth()
+      } else {
+        throw new Error(response.data.message || 'Login failed')
+      }
+    } catch (error: any) {
+      // Handle different error types
+      if (error.response) {
+        // Server responded with error status
+        const message = error.response.data?.message || error.response.data?.error || 'Login failed'
+        throw new Error(message)
+      } else if (error.request) {
+        // Request made but no response
+        throw new Error('Unable to connect to server. Please check your connection.')
+      } else {
+        // Other errors
+        throw new Error(error.message || 'Login failed')
+      }
     }
   }
 

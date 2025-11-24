@@ -8,7 +8,6 @@ on:
 env:
   AZURE_WEBAPP_NAME: diabetes-predictor-ai
   AZURE_RESOURCE_GROUP: diabetes-predictor-rg
-  REGISTRY_NAME: diabetesacr${{ github.run_number }}
   IMAGE_NAME: diabetes-predictor
   NODE_VERSION: '20'
 
@@ -61,53 +60,63 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Create Azure Container Registry (if not exists)
+      - name: Setup Azure Container Registry
+        id: acr-setup
         run: |
           echo "📦 Setting up Azure Container Registry..."
           
-          # Use Central India (same as Web App location)
           LOCATION="centralindia"
-          echo "Using location: $LOCATION"
-          
-          # Use a simpler registry name
           REGISTRY_NAME="diabetesacr$(date +%s | tail -c 6)"
-          echo "Registry name: $REGISTRY_NAME"
           
-          # Create registry
+          echo "Creating registry: $REGISTRY_NAME in $LOCATION"
+          
           az acr create \
             --name $REGISTRY_NAME \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --location $LOCATION \
             --sku Basic \
-            --admin-enabled true
+            --admin-enabled true \
+            || echo "Registry might already exist, continuing..."
           
+          # Export for next steps
           echo "REGISTRY_NAME=$REGISTRY_NAME" >> $GITHUB_ENV
-          echo "✅ Registry created: $REGISTRY_NAME"
+          echo "registry=$REGISTRY_NAME" >> $GITHUB_OUTPUT
+          
+          echo "✅ Registry ready: $REGISTRY_NAME"
 
-      - name: Build and push Docker image
+      - name: Build and Push Docker Image
+        env:
+          REGISTRY_NAME: ${{ steps.acr-setup.outputs.registry }}
         run: |
-          echo "🐳 Building Docker image..."
+          echo "🐳 Building and pushing Docker image..."
           
           # Login to ACR
           az acr login --name $REGISTRY_NAME
           
-          # Build image
-          docker build -t $REGISTRY_NAME.azurecr.io/${{ env.IMAGE_NAME }}:latest .
+          # Build with caching
+          docker build \
+            --tag $REGISTRY_NAME.azurecr.io/${{ env.IMAGE_NAME }}:latest \
+            --tag $REGISTRY_NAME.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            .
           
-          # Push image
+          # Push both tags
           docker push $REGISTRY_NAME.azurecr.io/${{ env.IMAGE_NAME }}:latest
+          docker push $REGISTRY_NAME.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
           
-          echo "✅ Image pushed successfully"
+          echo "✅ Image pushed: $REGISTRY_NAME.azurecr.io/${{ env.IMAGE_NAME }}:latest"
 
-      - name: Configure Web App for Container
+      - name: Configure Web App Container
+        env:
+          REGISTRY_NAME: ${{ steps.acr-setup.outputs.registry }}
         run: |
-          echo "⚙️ Configuring Web App to use Docker container..."
+          echo "⚙️ Configuring Web App..."
           
           # Get ACR credentials
           ACR_USERNAME=$(az acr credential show --name $REGISTRY_NAME --query "username" -o tsv)
           ACR_PASSWORD=$(az acr credential show --name $REGISTRY_NAME --query "passwords[0].value" -o tsv)
           
-          # Configure app to use container
+          # Configure container
           az webapp config container set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
@@ -116,39 +125,76 @@ jobs:
             --docker-registry-server-user $ACR_USERNAME \
             --docker-registry-server-password $ACR_PASSWORD
           
-          # Set app settings
+          echo "✅ Container configured"
+
+      - name: Configure App Settings
+        run: |
+          echo "🔧 Setting environment variables..."
+          
           az webapp config appsettings set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --settings \
-              WEBSITES_ENABLE_APP_SERVICE_STORAGE=false \
-              WEBSITES_PORT=8080 \
-              DOCKER_ENABLE_CI=true
+              GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
+              FIREBASE_DATABASE_URL="${{ secrets.FIREBASE_DATABASE_URL }}" \
+              SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+              FLASK_ENV="production" \
+              PYTHONUNBUFFERED="1" \
+              PYTHONDONTWRITEBYTECODE="1" \
+              WEBSITES_ENABLE_APP_SERVICE_STORAGE="false" \
+              WEBSITES_PORT="8000" \
+              DOCKER_ENABLE_CI="true" \
+              WEBSITES_CONTAINER_START_TIME_LIMIT="600"
           
-          # Remove startup.sh override (let Docker CMD run)
+          # Clear startup command (use Docker CMD)
           az webapp config set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --startup-file ''
+          
+          echo "✅ Settings configured"
 
-      - name: Restart Web App
+      - name: Restart and Deploy
         run: |
-          echo "🔄 Restarting Web App..."
+          echo "🔄 Restarting application..."
+          
           az webapp restart \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
-          echo "✅ Deployment completed"
+          
+          echo "✅ Deployment triggered"
 
-      - name: Verify deployment
+      - name: Wait for Deployment
         run: |
-          echo "🔍 Waiting for app to start..."
-          sleep 60
+          echo "⏳ Waiting for application to start (90 seconds)..."
+          sleep 90
+
+      - name: Verify Deployment
+        run: |
+          echo "🔍 Verifying deployment..."
           
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net || echo "000")
-          echo "HTTP Status: $HTTP_CODE"
+          APP_URL="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
           
-          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
-            echo "✅ Application is running!"
-          else
-            echo "⚠️ Application may still be starting..."
-          fi
+          for i in {1..5}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" $APP_URL || echo "000")
+            echo "Attempt $i: HTTP $HTTP_CODE"
+            
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
+              echo "✅ Application is live at $APP_URL"
+              exit 0
+            fi
+            
+            sleep 10
+          done
+          
+          echo "⚠️ Application may still be starting. Check logs at:"
+          echo "az webapp log tail --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }}"
+          
+      - name: Show Logs on Failure
+        if: failure()
+        run: |
+          echo "❌ Deployment verification failed. Fetching logs..."
+          az webapp log tail \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            || echo "Could not fetch logs"
