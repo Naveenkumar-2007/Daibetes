@@ -29,14 +29,6 @@ export default function PredictionDetail() {
       const response = await predictionAPI.getPredictionById(id!)
       if (response.data.success) {
         setPrediction(response.data.prediction)
-        
-        // Generate glucose trend
-        const glucose = response.data.prediction.features?.Glucose || 110
-        const trend = Array.from({ length: 8 }, (_, i) => ({
-          time: String(i + 1),
-          value: Math.round(glucose - 40 + (i * 10) + (Math.random() * 10))
-        }))
-        setGlucoseTrendData(trend)
       }
     } catch (error) {
       console.error('Error fetching prediction:', error)
