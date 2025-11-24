@@ -47,7 +47,11 @@ export const predictionAPI = {
 export const dashboardAPI = {
   getUserStats: () => api.get('/api/user/statistics'),
   
-  getUserHistory: () => api.get('/api/user/history')
+  getUserHistory: () => api.get('/api/user/history'),
+  
+  getLatestPrediction: () => api.get('/api/user/latest_prediction'),
+  
+  getAllPredictions: () => api.get('/api/user/all_predictions')
 }
 
 // Report APIs

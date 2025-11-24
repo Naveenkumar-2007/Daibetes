@@ -4,7 +4,7 @@ import { LayoutDashboard, FileText, Settings, Brain, TrendingUp, User as UserIco
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { motion } from 'framer-motion'
 import { useAuth } from '../lib/auth'
-import axios from 'axios'
+import { dashboardAPI } from '../lib/api'
 
 interface LatestPrediction {
   prediction_id: string
@@ -60,17 +60,13 @@ export default function Dashboard() {
     try {
       setError(null)
       // Fetch latest prediction
-      const latestResponse = await axios.get('http://localhost:5000/api/user/latest_prediction', {
-        withCredentials: true
-      })
+      const latestResponse = await dashboardAPI.getLatestPrediction()
       if (latestResponse.data.success && latestResponse.data.prediction) {
         setLatestPrediction(latestResponse.data.prediction)
       }
 
       // Fetch all predictions for comprehensive overview
-      const allResponse = await axios.get('http://localhost:5000/api/user/all_predictions', {
-        withCredentials: true
-      })
+      const allResponse = await dashboardAPI.getAllPredictions()
       if (allResponse.data.success && allResponse.data.predictions) {
         const predictions = allResponse.data.predictions
         setAllPredictions(predictions)
