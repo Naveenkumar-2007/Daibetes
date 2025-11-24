@@ -47,7 +47,8 @@ export const predictionAPI = {
 export const dashboardAPI = {
   getUserStats: () => api.get('/api/user/statistics'),
   
-  getUserHistory: () => api.get('/api/user/history'),
+  // Use all_predictions instead of history (history is an HTML route, not API)
+  getUserHistory: () => api.get('/api/user/all_predictions'),
   
   getLatestPrediction: () => api.get('/api/user/latest_prediction'),
   

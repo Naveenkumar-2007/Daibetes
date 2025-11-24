@@ -4,4 +4,4 @@
 
 #HttpOnly_.diabetes-predictor-ai.azurewebsites.net	TRUE	/	TRUE	0	ARRAffinitySameSite	f9df0d7fb514de16eb0635756b937f662826e4dd1f31967a1dd4266cb436e6f5
 #HttpOnly_.diabetes-predictor-ai.azurewebsites.net	TRUE	/	TRUE	0	ARRAffinity	f9df0d7fb514de16eb0635756b937f662826e4dd1f31967a1dd4266cb436e6f5
-#HttpOnly_diabetes-predictor-ai.azurewebsites.net	FALSE	/	FALSE	1764072952	session	.eJxdjDEOwzAMA_-i2ekDMjUvMVSbBQRYdiDLU5C_10XSpSOPRx4Ud5hyRXVa3QYCQVkKrcRZpT6z8AuOvuyGLMmbPVJTCvQepcTKiqluX1W6G89-dtYKfg8zjg6Lkv_Ivb3Q-QFUEzAq.aSRMeA.h0B9r60aCLFvbQvd13-fFQ5ZSN8
+#HttpOnly_diabetes-predictor-ai.azurewebsites.net	FALSE	/	FALSE	1764074584	session	.eJxdjDEOwzAMA_-i2ekDMjUvMVSbBQRYdiDLU5C_10XSpSOPRx4Ud5hyRXVa3QYCQVkKrcRZpT6z8AuOvuyGLMmbPVJTCvQepcTKiqluX1W6G89-dtYKfg8zjg6Lkv_Ivb3Q-QFUEzAq.aSRS2A.bmUm9M16x5AW_dDC9Fo8a0CFn-0
