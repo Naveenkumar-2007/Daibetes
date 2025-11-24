@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { User, Activity, FileText, Download, BarChart3, ArrowLeft } from 'lucide-react'
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts'
 import { motion } from 'framer-motion'
-import axios from 'axios'
+import { predictionAPI, reportAPI } from '../lib/api'
 
 const featureImportance = [
   { name: 'Glucose', value: 90 },
@@ -26,9 +26,7 @@ export default function PredictionDetail() {
 
   const fetchPrediction = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/user/prediction/${id}`, {
-        withCredentials: true
-      })
+      const response = await predictionAPI.getPredictionById(id!)
       if (response.data.success) {
         setPrediction(response.data.prediction)
         
@@ -50,18 +48,11 @@ export default function PredictionDetail() {
   const handleGenerateReport = async () => {
     setGeneratingReport(true)
     try {
-      const response = await axios.post('http://localhost:5000/api/generate_report', {
-        prediction_id: id
-      }, {
-        withCredentials: true
-      })
+      const response = await reportAPI.generateReport(id!)
       
       if (response.data.success) {
         // Download the report
-        const reportResponse = await axios.get(`http://localhost:5000/download_report/${response.data.report_id}`, {
-          withCredentials: true,
-          responseType: 'blob'
-        })
+        const reportResponse = await reportAPI.downloadReport(response.data.report_id)
         
         const url = window.URL.createObjectURL(new Blob([reportResponse.data]))
         const link = document.createElement('a')

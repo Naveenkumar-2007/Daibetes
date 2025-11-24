@@ -3,7 +3,7 @@ import { Users, FileText, TrendingUp, Activity } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../lib/auth'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import { adminAPI } from '../lib/api'
 
 interface User {
   user_id: string
@@ -46,8 +46,8 @@ export default function AdminPage() {
   const fetchAdminData = async () => {
     try {
       const [usersResponse, statsResponse] = await Promise.all([
-        axios.get('http://localhost:5000/api/admin/users', { withCredentials: true }),
-        axios.get('http://localhost:5000/api/admin/stats', { withCredentials: true })
+        adminAPI.getUsers(),
+        adminAPI.getStats()
       ])
 
       if (usersResponse.data.success) {

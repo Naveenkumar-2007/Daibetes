@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { FileText, Download, Calendar, TrendingUp } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../lib/auth'
-import axios from 'axios'
+import { reportAPI } from '../lib/api'
 
 interface Report {
   report_id: string
@@ -26,9 +26,7 @@ export default function ReportsPage() {
 
   const fetchReports = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/user/reports', {
-        withCredentials: true
-      })
+      const response = await reportAPI.getUserReports()
       if (response.data.success) {
         setReports(response.data.reports || [])
       }
@@ -41,10 +39,7 @@ export default function ReportsPage() {
 
   const downloadReport = async (reportId: string) => {
     try {
-      const response = await axios.get(`http://localhost:5000/download_report/${reportId}`, {
-        withCredentials: true,
-        responseType: 'blob'
-      })
+      const response = await reportAPI.downloadReport(reportId)
       
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')

@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { motion } from 'framer-motion'
 import { TrendingUp, Activity, AlertCircle, Download, ArrowLeft } from 'lucide-react'
-import axios from 'axios'
+import { predictionAPI } from '../lib/api'
 
 interface PredictionData {
   prediction_id: string
@@ -34,9 +34,7 @@ export default function GraphsPage() {
 
   const fetchPredictionData = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/user/prediction/${predictionId}`, {
-        withCredentials: true
-      })
+      const response = await predictionAPI.getPredictionById(predictionId!)
       if (response.data.success) {
         setData(response.data.prediction)
       }

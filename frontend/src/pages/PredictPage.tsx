@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Activity, User, Save, ArrowLeft, Download, BarChart3 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { predictionAPI } from '../lib/api'
-import axios from 'axios'
+import { predictionAPI, reportAPI } from '../lib/api'
 
 export default function PredictPage() {
   const navigate = useNavigate()
@@ -149,7 +148,7 @@ export default function PredictPage() {
                     }
 
                     // Generate report using Flask /report endpoint
-                    const reportResponse = await axios.post('http://localhost:5000/report', {
+                    const reportResponse = await reportAPI.generateReportWithData({
                       prediction_id: predId,
                       patient_info: result.patient_info,
                       prediction: result.risk_level === 'high' ? 1 : 0,
@@ -165,15 +164,15 @@ export default function PredictPage() {
                         'Pregnancies': result.medical_data?.Pregnancies,
                         'Diabetes Pedigree Function': result.medical_data?.['Diabetes Pedigree Function']
                       }
-                    }, { withCredentials: true })
+                    })
                     
                     if (reportResponse.data.success && reportResponse.data.report_file) {
                       // Download the report file
-                      const downloadUrl = `http://localhost:5000/reports/${reportResponse.data.report_file}`
+                      const downloadResponse = await reportAPI.downloadReportFile(reportResponse.data.report_file)
+                      const url = window.URL.createObjectURL(new Blob([downloadResponse.data]))
                       const link = document.createElement('a')
-                      link.href = downloadUrl
+                      link.href = url
                       link.setAttribute('download', reportResponse.data.report_file)
-                      link.setAttribute('target', '_blank')
                       document.body.appendChild(link)
                       link.click()
                       link.remove()

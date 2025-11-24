@@ -59,8 +59,34 @@ export const reportAPI = {
   generateReport: (predictionId: string) =>
     api.post('/api/generate_report', { prediction_id: predictionId }),
   
+  generateReportWithData: (data: any) =>
+    api.post('/report', data),
+  
   downloadReport: (reportId: string) =>
-    api.get(`/download_report/${reportId}`, { responseType: 'blob' })
+    api.get(`/download_report/${reportId}`, { responseType: 'blob' }),
+  
+  getUserReports: () => api.get('/api/user/reports'),
+  
+  downloadReportFile: (filename: string) =>
+    api.get(`/reports/${filename}`, { responseType: 'blob' })
+}
+
+// User Settings APIs
+export const userAPI = {
+  updateProfile: (data: any) => api.post('/api/user/update_profile', data),
+  
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post('/api/user/change_password', {
+      current_password: currentPassword,
+      new_password: newPassword
+    })
+}
+
+// Admin APIs
+export const adminAPI = {
+  getUsers: () => api.get('/api/admin/users'),
+  
+  getStats: () => api.get('/api/admin/stats')
 }
 
 export default api

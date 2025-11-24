@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { User, Mail, Phone, MapPin, Lock, LogOut, Save } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../lib/auth'
-import axios from 'axios'
+import { userAPI } from '../lib/api'
 
 export default function SettingsPage() {
   const { user, logout } = useAuth()
@@ -31,9 +31,7 @@ export default function SettingsPage() {
     setMessage({ type: '', text: '' })
 
     try {
-      const response = await axios.post('http://localhost:5000/api/user/update_profile', profileData, {
-        withCredentials: true
-      })
+      const response = await userAPI.updateProfile(profileData)
 
       if (response.data.success) {
         setMessage({ type: 'success', text: 'Profile updated successfully!' })
@@ -64,12 +62,10 @@ export default function SettingsPage() {
     setMessage({ type: '', text: '' })
 
     try {
-      const response = await axios.post('http://localhost:5000/api/user/change_password', {
-        current_password: passwordData.currentPassword,
-        new_password: passwordData.newPassword
-      }, {
-        withCredentials: true
-      })
+      const response = await userAPI.changePassword(
+        passwordData.currentPassword,
+        passwordData.newPassword
+      )
 
       if (response.data.success) {
         setMessage({ type: 'success', text: 'Password changed successfully!' })
