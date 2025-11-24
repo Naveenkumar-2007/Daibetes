@@ -309,6 +309,7 @@ def initialize_firebase():
     # Try Admin SDK with service account
     if FIREBASE_AVAILABLE:
         try:
+            # Check for service account JSON file
             if os.path.exists('firebase-service-account.json'):
                 cred = credentials.Certificate('firebase-service-account.json')
                 firebase_admin.initialize_app(cred, {'databaseURL': DATABASE_URL})
@@ -317,8 +318,21 @@ def initialize_firebase():
                 use_rest_api = False
                 print('✅ Firebase Admin SDK connected!')
                 return True
+            # Check for environment variable with JSON content
+            elif os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON'):
+                import json
+                service_account_dict = json.loads(os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON'))
+                cred = credentials.Certificate(service_account_dict)
+                firebase_admin.initialize_app(cred, {'databaseURL': DATABASE_URL})
+                db_ref = rtdb.reference()
+                firebase_initialized = True
+                use_rest_api = False
+                print('✅ Firebase Admin SDK connected (from environment)!')
+                return True
         except Exception as e:
             print(f'⚠️ Admin SDK error: {e}')
+            import traceback
+            traceback.print_exc()
     
     # Fallback to local storage with JSON file persistence
     db_ref = LocalDB()

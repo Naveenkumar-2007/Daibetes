@@ -37,7 +37,10 @@ from firebase_config import (
     get_prediction_by_id,
     get_predictions_by_ids,
     update_prediction_record,
-    append_prediction_comparison
+    append_prediction_comparison,
+    db,
+    firebase_initialized,
+    use_rest_api
 )
 
 # Import authentication
@@ -625,6 +628,13 @@ def api_login():
                 'success': False,
                 'message': 'Username and password are required'
             }), 400
+        
+        # Check if database is initialized
+        if not db:
+            return jsonify({
+                'success': False,
+                'message': 'Database connection not available. Please try again later.'
+            }), 503
         
         # Authenticate user
         success, message, user_data = authenticate_user(username, password)
@@ -3291,7 +3301,9 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'model_loaded': model is not None,
-        'llm_available': llm is not None
+        'llm_available': llm is not None,
+        'database_connected': db is not None and hasattr(db, 'collection'),
+        'firebase_mode': 'REST_API' if use_rest_api else 'Admin_SDK' if firebase_initialized else 'Local_Storage'
     })
 
 
