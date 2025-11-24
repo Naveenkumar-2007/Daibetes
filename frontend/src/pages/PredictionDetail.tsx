@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { User, Activity, FileText, Download, BarChart3, ArrowLeft, TrendingUp } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, PieChart, Pie, Cell, Legend } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import { motion } from 'framer-motion'
 import { predictionAPI, reportAPI } from '../lib/api'
-
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
 
 const featureImportance = [
   { name: 'Glucose', value: 90, color: '#3b82f6' },
@@ -19,7 +17,6 @@ export default function PredictionDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [prediction, setPrediction] = useState<any>(null)
-  const [glucoseTrendData, setGlucoseTrendData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [generatingReport, setGeneratingReport] = useState(false)
 
@@ -176,7 +173,7 @@ export default function PredictionDetail() {
                     cx="50%"
                     cy="50%"
                     labelLine={true}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                    label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(1)}%`}
                     outerRadius={100}
                     fill="#8884d8"
                     dataKey="value"
