@@ -12,9 +12,11 @@ else
     echo "⚠️  artifacts/ directory not found!"
 fi
 
-# Start gunicorn
+# Start gunicorn on the port Azure expects
+PORT=${WEBSITES_PORT:-8080}
+
 exec gunicorn \
-  --bind 0.0.0.0:${PORT:-8080} \
+  --bind 0.0.0.0:$PORT \
   --workers 1 \
   --threads 4 \
   --timeout 300 \
