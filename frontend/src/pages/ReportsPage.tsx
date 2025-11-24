@@ -73,11 +73,13 @@ export default function ReportsPage() {
 
   const downloadReport = async (reportId: string, patientName: string) => {
     try {
+      console.log('Downloading report:', reportId)
       const response = await reportAPI.downloadReport(reportId)
+      console.log('Response received:', response.headers['content-type'])
       
       // Check content type
       const contentType = response.headers['content-type'] || ''
-      const isPDF = contentType.includes('application/pdf')
+      const isPDF = contentType.includes('application/pdf') || contentType.includes('octet-stream')
       
       // Create blob from response data
       let blob: Blob
@@ -91,20 +93,30 @@ export default function ReportsPage() {
         blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'text/plain' })
       }
       
+      console.log('Blob created, size:', blob.size)
+      
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       const fileExtension = isPDF ? 'pdf' : 'txt'
-      const fileName = `diabetes_report_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.${fileExtension}`
+      const timestamp = new Date().toISOString().split('T')[0]
+      const fileName = `diabetes_report_${patientName.replace(/\s+/g, '_')}_${timestamp}.${fileExtension}`
       link.setAttribute('download', fileName)
+      link.style.display = 'none'
       document.body.appendChild(link)
       link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
-      alert('Report downloaded successfully!')
+      
+      setTimeout(() => {
+        link.remove()
+        window.URL.revokeObjectURL(url)
+      }, 100)
+      
+      console.log('Download complete!')
+      alert('✅ Report downloaded successfully!')
     } catch (error: any) {
       console.error('Error downloading report:', error)
-      alert(error.response?.data?.message || 'Failed to download report')
+      console.error('Error details:', error.response)
+      alert('❌ ' + (error.response?.data?.error || 'Failed to download report'))
     }
   }
 

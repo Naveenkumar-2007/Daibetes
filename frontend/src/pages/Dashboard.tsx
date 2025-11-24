@@ -144,21 +144,33 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Dashboard</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button 
-            onClick={() => {
-              setError(null)
-              setLoading(true)
-              fetchDashboardData()
-            }}
-            className="btn-primary w-full"
-          >
-            Try Again
-          </button>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 max-w-md w-full">
+          <div className="text-red-500 text-5xl sm:text-6xl mb-4 text-center">⚠️</div>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 text-center">Error Loading Dashboard</h2>
+          <p className="text-sm sm:text-base text-gray-600 mb-4 text-center">
+            {error === 'Dashboard took too long to load. Some data may be unavailable.' 
+              ? 'Connection timeout. Please check your internet and try again.'
+              : error}
+          </p>
+          <div className="space-y-3">
+            <button 
+              onClick={() => {
+                setError(null)
+                setLoading(true)
+                fetchDashboardData()
+              }}
+              className="btn-primary w-full py-3 text-sm sm:text-base"
+            >
+              Try Again
+            </button>
+            <button 
+              onClick={() => navigate('/predict')}
+              className="w-full py-3 text-sm sm:text-base border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              Make New Prediction
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -168,24 +180,24 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {/* Top Navigation */}
       <nav className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="text-2xl font-extrabold text-blue-900">DASHBOARD</div>
-            <div className="flex items-center gap-6">
-              <Link to="/" className="text-gray-700 hover:text-blue-600 transition-colors">Home</Link>
-              <Link to="/predict" className="text-gray-700 hover:text-blue-600 transition-colors">Predict</Link>
-              <Link to="/settings" className="text-gray-700 hover:text-blue-600 transition-colors">Settings</Link>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <UserIcon className="w-5 h-5 text-blue-600" />
+            <div className="text-xl sm:text-2xl font-extrabold text-blue-900">DASHBOARD</div>
+            <div className="flex items-center gap-2 sm:gap-6">
+              <Link to="/" className="hidden sm:inline text-gray-700 hover:text-blue-600 transition-colors">Home</Link>
+              <Link to="/predict" className="hidden sm:inline text-gray-700 hover:text-blue-600 transition-colors">Predict</Link>
+              <Link to="/settings" className="hidden sm:inline text-gray-700 hover:text-blue-600 transition-colors">Settings</Link>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <UserIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                 </div>
-                <span className="text-sm font-medium text-gray-700">{user?.username || 'User'}</span>
+                <span className="hidden sm:inline text-sm font-medium text-gray-700">{user?.username || 'User'}</span>
                 <button 
                   onClick={handleLogout}
-                  className="text-gray-700 hover:text-red-600 transition-colors"
+                  className="text-gray-700 hover:text-red-600 transition-colors p-2"
                   title="Logout"
                 >
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
             </div>
@@ -193,10 +205,10 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-8">
           {/* Sidebar */}
-          <aside className="lg:col-span-1 space-y-2">
+          <aside className="lg:col-span-1 space-y-2 hidden lg:block">
             <motion.div whileHover={{ x: 4 }}>
               <Link
                 to="/dashboard"
