@@ -12,6 +12,16 @@ else
     echo "⚠️  artifacts/ directory not found!"
 fi
 
+# Run startup test to verify imports
+echo ""
+echo "Running startup tests..."
+python startup_test.py
+if [ $? -ne 0 ]; then
+    echo "❌ Startup test failed! Check logs above."
+    exit 1
+fi
+echo ""
+
 # Start gunicorn on the port Azure expects
 PORT=${WEBSITES_PORT:-8080}
 
