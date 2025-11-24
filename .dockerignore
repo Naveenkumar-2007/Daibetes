@@ -17,9 +17,8 @@ build/
 htmlcov/
 tests/
 
-# Frontend
+# Frontend (build artifacts copied separately)
 frontend/node_modules/
-frontend/dist/
 frontend/.vite/
 frontend/tsconfig.tsbuildinfo
 
@@ -50,14 +49,11 @@ logs/
 *.log
 
 # Azure
-azure-logs/
 .azure/
 
 # MLOps
 mlruns/
-
-# Reports (generated at runtime)
-reports/*.txt
+mlflow.db
 
 # OS
 .DS_Store
@@ -67,3 +63,11 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+*.zip
+
+# Deployment files
+*.ps1
+*.xml
+.deployment
+.cleanignore
+verify-*.sh

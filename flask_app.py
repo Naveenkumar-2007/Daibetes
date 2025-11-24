@@ -53,8 +53,13 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'diabetes-predictor-secret-key-2025-change-in-production'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 
-# Enable CORS for React frontend
-CORS(app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'])
+# Enable CORS for React frontend and Azure
+allowed_origins = [
+    'http://localhost:3000', 'http://localhost:5173',
+    'https://diabetes-predictor-ai.azurewebsites.net',
+    'http://diabetes-predictor-ai.azurewebsites.net'
+]
+CORS(app, supports_credentials=True, origins=allowed_origins)
 
 # ------------------- LOAD ML MODEL & SCALER -------------------
 MODEL_PATH = os.path.join('artifacts', 'model.pkl')
@@ -86,7 +91,7 @@ app.config['GOOGLE_CLIENT_ID'] = google_client_id
 app.config['GOOGLE_CLIENT_SECRET'] = google_client_secret
 
 if not groq_api_key:
-    print("⚠️ Warning: GROQ_API_KEY not found in .env file!")
+    print("⚠️ Warning: GROQ_API_KEY not found - AI reports will be disabled")
     llm = None
 else:
     try:
@@ -98,6 +103,7 @@ else:
         print("✅ Groq LLM initialized successfully")
     except Exception as e:
         print(f"❌ Error initializing Groq LLM: {e}")
+        llm = None
         llm = None
 
 FEATURE_INDEX_MAP = {
