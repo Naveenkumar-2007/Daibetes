@@ -1124,6 +1124,12 @@ def user_dashboard():
             recent_activity.append(activity)
         
         return render_template('user_dashboard_new.html',
+            stats={
+                'total_predictions': stats.get('total_predictions', 0),
+                'low_risk': stats.get('total_predictions', 0) - high_risk_count,
+                'high_risk': high_risk_count,
+                'last_check': predictions[0].get('timestamp') if predictions else 'Never'
+            },
             total_predictions=stats.get('total_predictions', 0),
             recent_predictions=recent_predictions,
             total_reports=len(predictions),
@@ -1136,6 +1142,12 @@ def user_dashboard():
         traceback.print_exc()
         # Return with default values
         return render_template('user_dashboard_new.html',
+            stats={
+                'total_predictions': 0,
+                'low_risk': 0,
+                'high_risk': 0,
+                'last_check': 'Never'
+            },
             total_predictions=0,
             recent_predictions=0,
             total_reports=0,
