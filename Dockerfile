@@ -1,5 +1,14 @@
 # syntax=docker/dockerfile:1
-# Multi-stage build for optimized Azure deployment
+# Multi-stage build with Node.js for React frontend
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci --silent
+COPY frontend/ ./
+RUN npm run build
+
+# Python backend stage
 FROM python:3.11-slim
 
 # Environment variables
@@ -27,6 +36,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 # Copy application code
 COPY . .
+
+# Copy React build from frontend-builder stage
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/reports /app/logs /app/artifacts \

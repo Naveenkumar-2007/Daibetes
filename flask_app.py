@@ -470,34 +470,29 @@ def generate_comparison_pdf(current_prediction, comparison_entry):
 
 @app.route('/')
 def home():
-    """Serve React app in production or landing page in development"""
-    # Check if React build exists (production mode)
-    react_build = os.path.join(os.path.dirname(__file__), 'static', 'app', 'index.html')
+    """Serve React app"""
+    react_build = os.path.join(os.path.dirname(__file__), 'frontend', 'dist', 'index.html')
     if os.path.exists(react_build):
-        return send_from_directory(os.path.join('static', 'app'), 'index.html')
-    
-    # Development mode - use Flask templates
-    if 'user_id' in session:
-        if session.get('role') == 'admin':
-            return redirect(url_for('admin_dashboard'))
-        # Redirect to NEW dashboard for logged-in users
-        return redirect(url_for('user_dashboard'))
-    return render_template(
-        'landing.html',
-        google_client_id=google_client_id,
-        google_login_enabled=bool(google_client_id)
-    )
+        return send_from_directory(os.path.join('frontend', 'dist'), 'index.html')
+    return jsonify({"error": "React build not found. Run 'npm run build' in frontend/"}), 500
 
 
 @app.route('/<path:path>')
 def serve_react_app(path):
-    """Serve React app static files in production"""
-    react_dir = os.path.join(os.path.dirname(__file__), 'static', 'app')
-    if os.path.exists(os.path.join(react_dir, path)):
+    """Serve React app static files and handle SPA routing"""
+    react_dir = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
+    file_path = os.path.join(react_dir, path)
+    
+    # Serve static assets directly
+    if os.path.exists(file_path) and os.path.isfile(file_path):
         return send_from_directory(react_dir, path)
-    # For React Router - serve index.html for any unknown route
-    if os.path.exists(os.path.join(react_dir, 'index.html')):
+    
+    # For all other routes (React Router), serve index.html
+    index_path = os.path.join(react_dir, 'index.html')
+    if os.path.exists(index_path):
         return send_from_directory(react_dir, 'index.html')
+    
+    return jsonify({"error": "React build not found"}), 404
     # Fallback to 404
     return "Not Found", 404
 
