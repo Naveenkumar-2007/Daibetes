@@ -889,6 +889,14 @@ def get_all_user_predictions():
             # Determine prediction value (1 for high risk, 0 for low risk)
             pred_value = 1 if 'High' in str(pred.get('prediction', '')) or pred.get('risk_level') == 'high' else 0
             
+            # Check if report exists - multiple field names for compatibility
+            has_report = bool(
+                pred.get('report_path') or 
+                pred.get('report_id') or 
+                pred.get('report_file') or 
+                pred.get('report_generated_at')
+            )
+            
             formatted_pred = {
                 'prediction_id': pred.get('prediction_id', pred.get('id', pred.get('report_id'))),
                 'patient_name': pred.get('patient_name', pred.get('name', 'Unknown')),
@@ -906,7 +914,9 @@ def get_all_user_predictions():
                 'dpf': float(pred.get('DiabetesPedigreeFunction', pred.get('diabetes_pedigree_function', 0))),
                 'created_at': pred.get('timestamp', pred.get('created_at', '')),
                 'date': pred.get('date', ''),
-                'has_report': bool(pred.get('report_path') or pred.get('report_id'))
+                'has_report': has_report,
+                'report_id': pred.get('report_id', ''),
+                'report_file': pred.get('report_path', pred.get('report_file', ''))
             }
             formatted_predictions.append(formatted_pred)
             print(f"  ✓ {formatted_pred['patient_name']} - {formatted_pred['risk_level']} risk")
@@ -935,11 +945,21 @@ def get_user_reports():
         user_id = session.get('user_id')
         predictions = get_user_predictions(user_id)
         
+        print(f"📊 Fetching reports for user {user_id}, found {len(predictions)} predictions")
+        
         reports = []
         for pred in predictions:
-            if pred.get('report_id') or pred.get('report_path'):
+            # Check if report exists - multiple field names for compatibility
+            has_report = bool(
+                pred.get('report_id') or 
+                pred.get('report_path') or 
+                pred.get('report_file') or 
+                pred.get('report_generated_at')
+            )
+            
+            if has_report:
                 # Get timestamp - try multiple formats
-                generated_at = pred.get('timestamp') or pred.get('created_at')
+                generated_at = pred.get('report_generated_at') or pred.get('timestamp') or pred.get('created_at')
                 
                 # If generated_at is a number (Unix timestamp), convert to ISO string
                 if isinstance(generated_at, (int, float)):
@@ -950,24 +970,42 @@ def get_user_reports():
                     from datetime import datetime
                     generated_at = datetime.now().isoformat()
                 
-                reports.append({
-                    'report_id': pred.get('report_id', pred.get('prediction_id')),
-                    'prediction_id': pred.get('prediction_id'),
-                    'patient_name': pred.get('name', pred.get('patient_name', 'Unknown')),
-                    'prediction_result': 'Positive' if pred.get('prediction') == 1 else 'Negative',
+                # Determine prediction result
+                prediction_text = pred.get('prediction', '')
+                if isinstance(prediction_text, int):
+                    pred_result = 'High Risk' if prediction_text == 1 else 'Low Risk'
+                elif 'High' in str(prediction_text):
+                    pred_result = 'High Risk'
+                else:
+                    pred_result = 'Low Risk'
+                
+                report_entry = {
+                    'report_id': pred.get('report_id', pred.get('prediction_id', pred.get('id'))),
+                    'prediction_id': pred.get('prediction_id', pred.get('id')),
+                    'patient_name': pred.get('patient_name', pred.get('name', 'Unknown')),
+                    'prediction_result': pred_result,
                     'probability': pred.get('probability', pred.get('confidence', 50) / 100),
                     'generated_at': generated_at,
-                    'report_file': pred.get('report_path')
-                })
+                    'report_file': pred.get('report_path', pred.get('report_file'))
+                }
+                reports.append(report_entry)
+                print(f"  ✅ Report found: {report_entry['patient_name']} - {report_entry['prediction_id']}")
+        
+        print(f"✅ Returning {len(reports)} reports")
         
         return jsonify({
             'success': True,
-            'reports': reports
+            'reports': reports,
+            'total': len(reports)
         })
     except Exception as e:
+        print(f"❌ Error in get_user_reports: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'reports': []
         }), 500
 
 
@@ -2462,21 +2500,31 @@ All Rights Reserved | Confidential Medical Document
             f.write(full_report)
         
         # Save report info to Firebase if user is logged in
+        user_id = session.get('user_id', 'anonymous')
+        prediction_id = data.get('prediction_id')
+        
+        print(f"📝 Saving report info: user_id={user_id}, prediction_id={prediction_id}")
+        
         try:
-            if 'user_id' in session and data.get('prediction_id'):
-                user_id = session.get('user_id')
-                prediction_id = data.get('prediction_id')
-                
+            if prediction_id:
                 # Update the prediction with report info
                 update_data = {
                     'report_id': patient_id,
                     'report_path': report_filename,
+                    'report_file': report_filename,
                     'report_generated_at': timestamp
                 }
-                update_prediction_record(prediction_id, update_data, user_id)
-                print(f"✅ Report saved to Firebase for prediction {prediction_id}")
+                
+                success = update_prediction_record(prediction_id, update_data, user_id if user_id != 'anonymous' else None)
+                
+                if success:
+                    print(f"✅ Report info saved to Firebase for prediction {prediction_id}")
+                else:
+                    print(f"⚠️ Failed to update prediction record in Firebase")
         except Exception as fb_error:
-            print(f"Warning: Could not save report to Firebase: {fb_error}")
+            print(f"⚠️ Warning: Could not save report to Firebase: {fb_error}")
+            import traceback
+            traceback.print_exc()
             # Continue anyway - file is saved locally
         
         return jsonify({
