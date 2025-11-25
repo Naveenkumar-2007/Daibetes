@@ -459,18 +459,73 @@
             /* Table Mobile */
             .table-container {
                 padding: 0 15px 15px 15px;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
             }
 
+            /* Make table responsive with stacked cells */
             table {
                 font-size: 13px;
+                display: block;
+                width: 100%;
             }
 
-            table th,
+            table thead {
+                display: none;
+            }
+
+            table tbody {
+                display: block;
+                width: 100%;
+            }
+
+            table tr {
+                display: block;
+                margin-bottom: 15px;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                overflow: hidden;
+                background: white;
+            }
+
             table td {
-                padding: 12px 10px;
-                min-width: 120px;
+                display: block;
+                text-align: right;
+                padding: 12px 15px;
+                border-bottom: 1px solid #e0e0e0;
+                position: relative;
+                padding-left: 50%;
+            }
+
+            table td:last-child {
+                border-bottom: none;
+            }
+
+            table td:before {
+                content: attr(data-label);
+                position: absolute;
+                left: 15px;
+                font-weight: 600;
+                text-align: left;
+                color: #64748b;
+                white-space: nowrap;
+            }
+
+            /* Action buttons in mobile */
+            .action-buttons {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-top: 5px;
+            }
+
+            .action-buttons button {
+                width: 100%;
+                justify-content: center;
+            }
+
+            /* Badges */
+            .badge {
+                display: inline-block;
+                margin-top: 5px;
             }
 
             /* Ensure touch-friendly targets */
@@ -678,14 +733,14 @@
                 }
 
                 row.innerHTML = `
-                    <td class="patient-name">${patient.full_name}</td>
-                    <td>${patient.username}</td>
-                    <td>${patient.email}</td>
-                    <td><strong>${patient.total_predictions}</strong></td>
-                    <td><span class="badge badge-high">${patient.high_risk_count}</span></td>
-                    <td><span class="badge badge-low">${patient.low_risk_count}</span></td>
-                    <td>${lastActivity}</td>
-                    <td>
+                    <td class="patient-name" data-label="Patient Name">${patient.full_name}</td>
+                    <td data-label="Username">${patient.username}</td>
+                    <td data-label="Email">${patient.email}</td>
+                    <td data-label="Total Predictions"><strong>${patient.total_predictions}</strong></td>
+                    <td data-label="High Risk"><span class="badge badge-high">${patient.high_risk_count}</span></td>
+                    <td data-label="Low Risk"><span class="badge badge-low">${patient.low_risk_count}</span></td>
+                    <td data-label="Last Activity">${lastActivity}</td>
+                    <td data-label="Actions">
                         <div class="action-buttons">
                             <button class="btn-view" onclick="viewPatientPredictions('${patient.user_id}', '${patient.full_name}')">
                                 <i class="fas fa-eye"></i> View

@@ -249,6 +249,7 @@ def initiate_password_reset(email, base_url):
         print(f"{'='*70}\n")
         
         # Attempt to send email (will work if email is configured)
+        email_sent = False
         try:
             email_sent, email_message = send_password_reset_email(normalized_email, reset_url)
             if not email_sent:
@@ -256,7 +257,11 @@ def initiate_password_reset(email, base_url):
         except Exception as e:
             print(f"⚠️ Email sending failed: {e}")
         
-        return True, "Password reset instructions have been sent. Please check the console for the reset link."
+        # If email is not configured, return the reset URL in the message (for development)
+        if not email_sent:
+            return True, f"Email service not configured. Use this link to reset: {reset_url}"
+        
+        return True, "Password reset instructions have been sent to your email."
         
     except Exception as exc:
         print(f"❌ Password reset error: {exc}")

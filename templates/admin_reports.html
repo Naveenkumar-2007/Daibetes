@@ -313,26 +313,17 @@
             /* Table Mobile */
             .reports-table {
                 font-size: 13px;
+                display: block;
+                width: 100%;
             }
 
-            .reports-table th,
-            .reports-table td {
-                padding: 12px 10px;
-            }
-
-            /* Make table scrollable horizontally */
-            .content {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-
-            .reports-table {
-                min-width: 800px;
-            }
-
-            /* Stack table cells on very small screens */
             .reports-table thead {
                 display: none;
+            }
+
+            .reports-table tbody {
+                display: block;
+                width: 100%;
             }
 
             .reports-table tr {
@@ -341,6 +332,7 @@
                 border: 1px solid #e5e7eb;
                 border-radius: 8px;
                 overflow: hidden;
+                background: white;
             }
 
             .reports-table td {
@@ -363,6 +355,7 @@
                 font-weight: 600;
                 text-align: left;
                 color: #64748b;
+                white-space: nowrap;
             }
 
             /* Buttons Mobile */
