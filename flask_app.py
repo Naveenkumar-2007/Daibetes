@@ -480,8 +480,8 @@ def home():
     if 'user_id' in session:
         if session.get('role') == 'admin':
             return redirect(url_for('admin_dashboard'))
-        # Redirect to prediction page first (hospital theme)
-        return redirect(url_for('user_predict_page'))
+        # Redirect to NEW dashboard for logged-in users
+        return redirect(url_for('user_dashboard'))
     return render_template(
         'landing.html',
         google_client_id=google_client_id,
