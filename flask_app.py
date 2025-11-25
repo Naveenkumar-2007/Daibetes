@@ -2574,13 +2574,25 @@ Provide a detailed medical assessment with recommendations."""
 
 
 def generate_beautiful_pdf(report, report_id):
-    """Generate a professional medical PDF report matching the blue-themed design"""
+    """Generate a professional medical PDF report with comprehensive charts and recommendations"""
     from io import BytesIO
     from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak, KeepTogether
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from report_generator import (generate_clinical_parameter_chart, generate_risk_gauge_chart,
                                    generate_parameter_radar_chart, generate_bmi_classification_chart)
+    # Import enhanced report generator
+    try:
+        from enhanced_report_generator import (
+            generate_comprehensive_health_chart,
+            get_personalized_recommendations,
+            format_recommendations_for_pdf
+        )
+        enhanced_available = True
+    except ImportError:
+        enhanced_available = False
+        print("⚠️ Enhanced report generator not available, using standard charts")
+    
     from reportlab.lib import colors
     from reportlab.lib.units import inch
     from reportlab.pdfgen import canvas
@@ -2720,6 +2732,18 @@ def generate_beautiful_pdf(report, report_id):
     story.append(patient_table)
     story.append(Spacer(1, 0.25*inch))
     
+    # Add comprehensive health visualization chart (4-panel)
+    if enhanced_available:
+        try:
+            chart_buffer = generate_comprehensive_health_chart(report)
+            chart_img = Image(chart_buffer, width=7*inch, height=5*inch)
+            story.append(Paragraph("COMPREHENSIVE HEALTH ANALYSIS", heading_style))
+            story.append(Spacer(1, 0.1*inch))
+            story.append(chart_img)
+            story.append(Spacer(1, 0.25*inch))
+        except Exception as e:
+            print(f"Error generating comprehensive chart: {e}")
+    
     # RESULTS section
     story.append(Paragraph("RESULTS", heading_style))
     story.append(Spacer(1, 0.1*inch))
@@ -2759,12 +2783,20 @@ def generate_beautiful_pdf(report, report_id):
         ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
     ]))
     # Recommendations section
-    story.append(Paragraph("Recommendations", heading_style))
+    story.append(Paragraph("PERSONALIZED RECOMMENDATIONS", heading_style))
     story.append(Spacer(1, 0.1*inch))
     
-    # Generate AI-powered recommendations using Groq
-    try:
-        ai_prompt = f"""As a medical AI assistant, provide concise medical recommendations for a diabetes risk assessment with these parameters:
+    # Generate comprehensive personalized recommendations
+    if enhanced_available:
+        try:
+            recommendations = get_personalized_recommendations(report)
+            rec_elements = format_recommendations_for_pdf(recommendations, body_style)
+            story.extend(rec_elements)
+        except Exception as e:
+            print(f"Error generating personalized recommendations: {e}")
+            # Fallback to simple AI recommendations
+            try:
+                ai_prompt = f"""As a medical AI assistant, provide concise medical recommendations for a diabetes risk assessment with these parameters:
 - Glucose: {glucose} mg/dL
 - BMI: {bmi} kg/m²
 - Blood Pressure: {bp} mmHg
@@ -2773,22 +2805,51 @@ def generate_beautiful_pdf(report, report_id):
 
 Provide 3-4 sentences covering: lifestyle changes, preventive measures, and regular health monitoring. Keep it professional but brief."""
 
-        ai_response = llm.invoke(ai_prompt)
-        recommendations_text = ai_response.content if hasattr(ai_response, 'content') else "Doctor's recommendations and next steps for managing and improving the patient's condition. Includes lifestyle changes, potential treatments, and regular monitoring."
-    except:
-        recommendations_text = "Doctor's recommendations and next steps for managing and improving the patient's condition. Includes lifestyle changes, potential treatments, and regular monitoring."
+                ai_response = llm.invoke(ai_prompt)
+                recommendations_text = ai_response.content if hasattr(ai_response, 'content') else "Doctor's recommendations and next steps for managing and improving the patient's condition. Includes lifestyle changes, potential treatments, and regular monitoring."
+            except:
+                recommendations_text = "Doctor's recommendations and next steps for managing and improving the patient's condition. Includes lifestyle changes, potential treatments, and regular monitoring."
+            
+            recommendations_para = Paragraph(recommendations_text, body_style)
+            recommendations_box = Table([[recommendations_para]], colWidths=[7*inch])
+            recommendations_box.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#dbeafe')),
+                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#93c5fd')),
+                ('TOPPADDING', (0, 0), (-1, -1), 15),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
+                ('LEFTPADDING', (0, 0), (-1, -1), 15),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 15),
+            ]))
+            story.append(recommendations_box)
+    else:
+        # Fallback if enhanced generator not available
+        try:
+            ai_prompt = f"""As a medical AI assistant, provide concise medical recommendations for a diabetes risk assessment with these parameters:
+- Glucose: {glucose} mg/dL
+- BMI: {bmi} kg/m²
+- Blood Pressure: {bp} mmHg
+- Age: {age} years
+- Risk Assessment: {result_text}
+
+Provide 3-4 sentences covering: lifestyle changes, preventive measures, and regular health monitoring. Keep it professional but brief."""
+
+            ai_response = llm.invoke(ai_prompt)
+            recommendations_text = ai_response.content if hasattr(ai_response, 'content') else "Doctor's recommendations and next steps for managing and improving the patient's condition. Includes lifestyle changes, potential treatments, and regular monitoring."
+        except:
+            recommendations_text = "Doctor's recommendations and next steps for managing and improving the patient's condition. Includes lifestyle changes, potential treatments, and regular monitoring."
+        
+        recommendations_para = Paragraph(recommendations_text, body_style)
+        recommendations_box = Table([[recommendations_para]], colWidths=[7*inch])
+        recommendations_box.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#dbeafe')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#93c5fd')),
+            ('TOPPADDING', (0, 0), (-1, -1), 15),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
+            ('LEFTPADDING', (0, 0), (-1, -1), 15),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 15),
+        ]))
+        story.append(recommendations_box)
     
-    recommendations_para = Paragraph(recommendations_text, body_style)
-    recommendations_box = Table([[recommendations_para]], colWidths=[7*inch])
-    recommendations_box.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#dbeafe')),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#93c5fd')),
-        ('TOPPADDING', (0, 0), (-1, -1), 15),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
-        ('LEFTPADDING', (0, 0), (-1, -1), 15),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 15),
-    ]))
-    story.append(recommendations_box)
     story.append(Spacer(1, 0.3*inch))
     
     # Add footer note
