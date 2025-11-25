@@ -480,10 +480,20 @@ def home():
 @app.route('/<path:path>')
 def serve_react_app(path):
     """Serve React app static files and handle SPA routing"""
+    # CRITICAL: Don't intercept API routes, Flask templates, or backend endpoints
+    api_prefixes = ['api/', 'predict', 'login', 'register', 'logout', 'user/', 'admin/', 
+                    'reports/', 'download_', 'health', 'report', 'reset_password']
+    
+    # If path starts with any API prefix, let Flask handle it (don't serve React)
+    if any(path.startswith(prefix) for prefix in api_prefixes):
+        # This will trigger a 404, letting the actual Flask route handle it
+        from flask import abort
+        abort(404)
+    
     react_dir = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
     file_path = os.path.join(react_dir, path)
     
-    # Serve static assets directly
+    # Serve static assets directly (JS, CSS, images)
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return send_from_directory(react_dir, path)
     
@@ -493,8 +503,6 @@ def serve_react_app(path):
         return send_from_directory(react_dir, 'index.html')
     
     return jsonify({"error": "React build not found"}), 404
-    # Fallback to 404
-    return "Not Found", 404
 
 
 @app.route('/login')
