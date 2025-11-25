@@ -801,16 +801,26 @@ def get_session():
     """Get current session information for React frontend"""
     try:
         if 'user_id' in session:
+            user_info = {
+                'user_id': session.get('user_id'),
+                'username': session.get('username'),
+                'full_name': session.get('full_name'),
+                'email': session.get('email'),
+                'role': session.get('role', 'user')
+            }
+            
+            # Debug: Get prediction count for this user
+            try:
+                from firebase_config import get_user_predictions
+                predictions = get_user_predictions(session.get('user_id'))
+                user_info['debug_prediction_count'] = len(predictions)
+            except:
+                user_info['debug_prediction_count'] = -1
+            
             return jsonify({
                 'success': True,
                 'authenticated': True,
-                'user': {
-                    'user_id': session.get('user_id'),
-                    'username': session.get('username'),
-                    'full_name': session.get('full_name'),
-                    'email': session.get('email'),
-                    'role': session.get('role', 'user')
-                }
+                'user': user_info
             })
         else:
             return jsonify({
@@ -3100,6 +3110,51 @@ def health_check():
         'database_connected': db is not None and hasattr(db, 'collection'),
         'firebase_mode': 'REST_API' if use_rest_api else 'Admin_SDK' if firebase_initialized else 'Local_Storage'
     })
+
+
+@app.route('/api/debug/user-predictions', methods=['GET'])
+@login_required
+def debug_user_predictions():
+    """Debug endpoint to check user predictions"""
+    try:
+        user_id = session.get('user_id')
+        
+        # Get all predictions from Firebase
+        all_preds = db_ref.child('predictions').get()
+        
+        # Find predictions for this user
+        user_preds = []
+        all_user_ids = set()
+        
+        if all_preds:
+            for pred_id, pred_data in all_preds.items():
+                if isinstance(pred_data, dict):
+                    pred_user_id = pred_data.get('user_id')
+                    all_user_ids.add(pred_user_id)
+                    
+                    if pred_user_id == user_id:
+                        user_preds.append({
+                            'prediction_id': pred_id,
+                            'patient_name': pred_data.get('patient_name'),
+                            'user_id': pred_user_id
+                        })
+        
+        return jsonify({
+            'success': True,
+            'current_user_id': user_id,
+            'current_username': session.get('username'),
+            'user_predictions': user_preds,
+            'total_user_predictions': len(user_preds),
+            'total_predictions_in_db': len(all_preds) if all_preds else 0,
+            'all_user_ids_in_db': list(all_user_ids)
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 
 @app.route('/aggregate_analysis')
