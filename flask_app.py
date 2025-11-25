@@ -652,8 +652,8 @@ def api_login():
             if user_data['role'] == 'admin':
                 redirect_url = url_for('admin_dashboard')
             else:
-                # Redirect to prediction page (hospital theme)
-                redirect_url = url_for('user_predict_page')
+                # Redirect to dashboard (modern responsive design)
+                redirect_url = url_for('user_dashboard')
             
             return jsonify({
                 'success': True,
@@ -694,7 +694,7 @@ def api_login_google():
             if user_data['role'] == 'admin':
                 redirect_url = url_for('admin_dashboard')
             else:
-                redirect_url = url_for('user_predict_page')
+                redirect_url = url_for('user_dashboard')
 
             return jsonify({
                 'success': True,
