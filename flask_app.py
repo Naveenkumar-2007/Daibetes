@@ -1123,7 +1123,7 @@ def user_dashboard():
             }
             recent_activity.append(activity)
         
-        return render_template('user_dashboard.html',
+        return render_template('user_dashboard_new.html',
             total_predictions=stats.get('total_predictions', 0),
             recent_predictions=recent_predictions,
             total_reports=len(predictions),
@@ -1135,7 +1135,7 @@ def user_dashboard():
         import traceback
         traceback.print_exc()
         # Return with default values
-        return render_template('user_dashboard.html',
+        return render_template('user_dashboard_new.html',
             total_predictions=0,
             recent_predictions=0,
             total_reports=0,
@@ -1305,7 +1305,7 @@ def user_history():
     """Render user history page"""
     if session.get('role') == 'admin':
         return redirect(url_for('admin_dashboard'))
-    return render_template('user_dashboard.html')
+    return render_template('user_dashboard_new.html')
 
 
 @app.route('/api/profile', methods=['GET'])
