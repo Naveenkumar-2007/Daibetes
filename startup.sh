@@ -53,22 +53,23 @@ PORT="${PORT:-8000}"
 
 echo "🌐 Starting Gunicorn on port $PORT..."
 echo "⚙️  Configuration:"
-echo "   - Workers: 4"
-echo "   - Threads: 2"
-echo "   - Timeout: 600s"
+echo "   - Workers: 2 (reduced for faster startup)"
+echo "   - Threads: 4"
+echo "   - Timeout: 300s"
+echo "   - Graceful timeout: 120s"
 
-# Start Gunicorn with optimized settings for Azure
+# Start Gunicorn with optimized settings for Azure (faster startup)
 exec gunicorn --bind=0.0.0.0:$PORT \
-         --workers=4 \
-         --threads=2 \
-         --timeout=600 \
+         --workers=2 \
+         --threads=4 \
+         --timeout=300 \
+         --graceful-timeout=120 \
          --keep-alive=5 \
          --max-requests=1000 \
          --max-requests-jitter=50 \
          --access-logfile=- \
          --error-logfile=- \
          --log-level=info \
-         --worker-class=sync \
-         --preload \
+         --worker-class=gthread \
          flask_app:app
 

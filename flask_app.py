@@ -84,7 +84,7 @@ except Exception as e:
     print(f"❌ Error loading scaler: {e}")
     scaler = None
 
-# ------------------- LOAD GROQ LLM -------------------
+# ------------------- LOAD GROQ LLM (LAZY LOADING) -------------------
 load_dotenv()
 groq_api_key = os.getenv("GROQ_API_KEY")
 google_client_id = os.getenv("GOOGLE_CLIENT_ID", "")
@@ -93,21 +93,36 @@ google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
 app.config['GOOGLE_CLIENT_ID'] = google_client_id
 app.config['GOOGLE_CLIENT_SECRET'] = google_client_secret
 
-if not groq_api_key:
-    print("⚠️ Warning: GROQ_API_KEY not found - AI reports will be disabled")
-    llm = None
-else:
+# Use lazy loading for LLM to speed up startup
+llm = None
+_llm_initialized = False
+
+def get_llm():
+    """Lazy load LLM only when needed"""
+    global llm, _llm_initialized
+    
+    if _llm_initialized:
+        return llm
+    
+    if not groq_api_key:
+        print("⚠️ Warning: GROQ_API_KEY not found - AI reports will be disabled")
+        _llm_initialized = True
+        return None
+    
     try:
         llm = ChatGroq(
             model="llama-3.1-8b-instant",
             groq_api_key=groq_api_key,
-            temperature=0.4
+            temperature=0.4,
+            timeout=30
         )
         print("✅ Groq LLM initialized successfully")
+        _llm_initialized = True
+        return llm
     except Exception as e:
         print(f"❌ Error initializing Groq LLM: {e}")
-        llm = None
-        llm = None
+        _llm_initialized = True
+        return None
 
 FEATURE_INDEX_MAP = {
     'Pregnancies': 0,
@@ -467,6 +482,20 @@ def generate_comparison_pdf(current_prediction, comparison_entry):
     return buffer, filename
 
 # ------------------- AUTHENTICATION ROUTES -------------------
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Azure App Service"""
+    try:
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'firebase': firebase_initialized,
+            'model_loaded': model is not None,
+            'scaler_loaded': scaler is not None
+        }), 200
+    except Exception as e:
+        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
 
 @app.route('/')
 def home():
@@ -2018,7 +2047,8 @@ def predict():
 def analyze_prediction_trends():
     """Generate comparative insights across past predictions using Groq"""
     try:
-        if llm is None:
+        current_llm = get_llm()
+        if current_llm is None:
             return jsonify({
                 'success': False,
                 'error': 'AI analysis service is unavailable. Please configure GROQ_API_KEY.'
@@ -2121,7 +2151,7 @@ def analyze_prediction_trends():
             }), 500
 
         prompt = build_comparison_prompt(resolved_predictions)
-        groq_response = llm.invoke(prompt)
+        groq_response = current_llm.invoke(prompt)
         explanation_text = getattr(groq_response, 'content', str(groq_response))
 
         ordered_predictions = sorted(resolved_predictions, key=parse_prediction_datetime)
@@ -2230,7 +2260,8 @@ def generate_report():
     Creates a professional medical diagnosis report
     """
     try:
-        if llm is None:
+        current_llm = get_llm()
+        if current_llm is None:
             return jsonify({
                 'success': False,
                 'error': 'AI Report Generator not available. Please configure GROQ_API_KEY.'
@@ -2381,7 +2412,7 @@ Please generate a comprehensive diabetes assessment report analyzing these healt
         )
         
         # Generate report using Groq LLM
-        response = llm.invoke(formatted_prompt)
+        response = current_llm.invoke(formatted_prompt)
         report_content = response.content
         
         # Add header and footer to report
@@ -2530,7 +2561,8 @@ def api_generate_report():
         }
         
         # Use the existing report generation prompt
-        if llm is None:
+        current_llm = get_llm()
+        if current_llm is None:
             return jsonify({
                 'success': False,
                 'error': 'AI Report Generator not available'
@@ -2552,7 +2584,7 @@ Test Results:
 
 Provide a detailed medical assessment with recommendations."""
 
-        response = llm.invoke(prompt)
+        response = current_llm.invoke(prompt)
         report_content = response.content
         
         # Save report
@@ -2886,6 +2918,14 @@ def generate_beautiful_pdf(report, report_id):
     story.append(Paragraph("PHYSICIAN'S MEDICAL ASSESSMENT & RECOMMENDATIONS", heading_style))
     story.append(Spacer(1, 0.08*inch))
     
+    # Get LLM instance
+    current_llm = get_llm()
+    if current_llm is None:
+        # LLM not available - provide a basic template
+        story.append(Paragraph("<i>AI-powered analysis is currently unavailable. Please consult with your healthcare provider for detailed recommendations.</i>", body_style))
+        story.append(Spacer(1, 0.3*inch))
+    else:
+    
     try:
         # Generate AI-powered personalized analysis using Groq
         ai_prompt = f"""You are Dr. Sarah Mitchell, MD, FACP, a board-certified endocrinologist with 15 years of experience in diabetes care and metabolic disorders at City General Hospital.
@@ -3000,7 +3040,7 @@ CRITICAL REQUIREMENTS:
 - Minimum 2000 words of detailed medical analysis"""
 
         # Call Groq AI for analysis
-        ai_response = llm.invoke(ai_prompt)
+        ai_response = current_llm.invoke(ai_prompt)
         ai_analysis = ai_response.content if hasattr(ai_response, 'content') else str(ai_response)
         
         # Format the AI response with proper styling
@@ -4103,8 +4143,12 @@ Deliver this analysis as if writing in a patient's electronic medical record."""
         )
         
         # Generate AI analysis
-        response = llm.invoke(formatted_prompt)
-        ai_analysis = response.content
+        current_llm = get_llm()
+        if current_llm is None:
+            ai_analysis = "AI analysis service is currently unavailable. Please consult with your healthcare provider for a detailed assessment of your test results."
+        else:
+            response = current_llm.invoke(formatted_prompt)
+            ai_analysis = response.content
         
         # Determine best report (lowest risk with highest confidence)
         best_report_text = None
