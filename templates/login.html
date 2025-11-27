@@ -412,12 +412,7 @@
                 if (data.success) {
                     showAlert(data.message || 'Login successful!', 'success');
                     setTimeout(() => {
-                        // Always redirect to new dashboard
-                        if (data.role === 'admin') {
-                            window.location.href = '/admin/dashboard';
-                        } else {
-                            window.location.href = '/user/dashboard';
-                        }
+                        window.location.href = data.redirect;
                     }, 500);
                 } else {
                     showAlert(data.message || 'Login failed');
@@ -458,13 +453,8 @@
                 if (data.success) {
                     showAlert(data.message || 'Login successful!', 'success');
                     setTimeout(() => {
-                        // Always redirect to new dashboard
-                        if (data.role === 'admin') {
-                            window.location.href = '/admin/dashboard';
-                        } else {
-                            window.location.href = '/user/dashboard';
-                        }
-                    }, 500);
+                        window.location.href = data.redirect;
+                    }, 400);
                 } else {
                     showAlert(data.message || 'Google login failed');
                 }

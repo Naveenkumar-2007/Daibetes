@@ -67,17 +67,18 @@ export default function SettingsPage() {
     try {
       const response = await userAPI.changePassword(
         passwordData.currentPassword,
-        passwordData.newPassword
+        passwordData.newPassword,
+        passwordData.confirmPassword
       )
 
       if (response.data.success) {
         setPasswordMessage({ type: 'success', text: 'Password changed successfully!' })
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
       } else {
-        setPasswordMessage({ type: 'error', text: response.data.message || 'Password change failed' })
+        setPasswordMessage({ type: 'error', text: response.data.error || response.data.message || 'Password change failed' })
       }
     } catch (error: any) {
-      setPasswordMessage({ type: 'error', text: error.response?.data?.message || 'Failed to change password' })
+      setPasswordMessage({ type: 'error', text: error.response?.data?.error || error.response?.data?.message || 'Failed to change password' })
     } finally {
       setPasswordLoading(false)
     }

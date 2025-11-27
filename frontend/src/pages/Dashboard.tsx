@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FileText, Settings, Brain, TrendingUp, User as UserIcon, Activity, LogOut, Shield } from 'lucide-react'
+import { LayoutDashboard, FileText, Settings, Brain, TrendingUp, User as UserIcon, Activity, LogOut, Shield, Menu, X } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../lib/auth'
 import { dashboardAPI } from '../lib/api'
+import MobileNav from '../components/MobileNav'
 
 interface LatestPrediction {
   prediction_id: string
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const [glucoseData, setGlucoseData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [stats, setStats] = useState({
     totalPredictions: 0,
     highRiskCount: 0,
@@ -60,9 +62,12 @@ export default function Dashboard() {
       if (loading) {
         console.warn('Dashboard loading timeout - forcing completion')
         setLoading(false)
-        setError('Dashboard took too long to load. Some data may be unavailable.')
+        // Don't set error if we have any data
+        if (allPredictions.length === 0) {
+          setError('Dashboard took too long to load. Please refresh the page.')
+        }
       }
-    }, 10000) // 10 second timeout
+    }, 15000) // 15 second timeout
     
     fetchDashboardData()
     
@@ -74,53 +79,70 @@ export default function Dashboard() {
       setError(null)
       console.log('Fetching dashboard data...')
       
-      // Fetch latest prediction
-      const latestResponse = await dashboardAPI.getLatestPrediction()
-      console.log('Latest prediction response:', latestResponse.data)
-      
-      if (latestResponse.data.success && latestResponse.data.prediction) {
-        setLatestPrediction(latestResponse.data.prediction)
+      // Try to fetch data with individual try-catch for each API call
+      try {
+        const latestResponse = await dashboardAPI.getLatestPrediction()
+        console.log('Latest prediction response:', latestResponse.data)
+        
+        if (latestResponse.data.success && latestResponse.data.prediction) {
+          setLatestPrediction(latestResponse.data.prediction)
+        }
+      } catch (err) {
+        console.error('Error fetching latest prediction (non-critical):', err)
+        // Continue even if latest prediction fails
       }
 
       // Fetch all predictions for comprehensive overview
-      const allResponse = await dashboardAPI.getAllPredictions()
-      console.log('All predictions response:', allResponse.data)
-      
-      if (allResponse.data.success && allResponse.data.predictions) {
-        const predictions = allResponse.data.predictions
-        setAllPredictions(predictions)
+      try {
+        const allResponse = await dashboardAPI.getAllPredictions()
+        console.log('All predictions response:', allResponse.data)
         
-        // Calculate statistics
-        const highRisk = predictions.filter((p: AllPrediction) => p.prediction === 1).length
-        const lowRisk = predictions.filter((p: AllPrediction) => p.prediction === 0).length
-        const withReports = predictions.filter((p: AllPrediction) => p.has_report).length
-        
-        setStats({
-          totalPredictions: predictions.length,
-          highRiskCount: highRisk,
-          lowRiskCount: lowRisk,
-          reportsGenerated: withReports
-        })
+        if (allResponse.data.success && allResponse.data.predictions) {
+          const predictions = allResponse.data.predictions
+          setAllPredictions(predictions)
+          
+          // Calculate statistics
+          const highRisk = predictions.filter((p: AllPrediction) => p.prediction === 1).length
+          const lowRisk = predictions.filter((p: AllPrediction) => p.prediction === 0).length
+          const withReports = predictions.filter((p: AllPrediction) => p.has_report).length
+          
+          setStats({
+            totalPredictions: predictions.length,
+            highRiskCount: highRisk,
+            lowRiskCount: lowRisk,
+            reportsGenerated: withReports
+          })
 
-        // Generate glucose trend from all predictions
-        if (predictions.length > 0) {
-          const glucoseTrend = predictions.slice(0, 10).reverse().map((p: AllPrediction) => ({
-            date: new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            glucose: p.glucose,
-            bmi: p.bmi,
-            insulin: p.insulin,
-            bloodPressure: p.blood_pressure,
-            skinThickness: p.skin_thickness,
-            pregnancies: p.pregnancies,
-            dpf: p.dpf
-          }))
-          setGlucoseData(glucoseTrend)
+          // Generate glucose trend from all predictions
+          if (predictions.length > 0) {
+            const glucoseTrend = predictions.slice(0, 10).reverse().map((p: AllPrediction) => ({
+              date: new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              glucose: p.glucose,
+              bmi: p.bmi,
+              insulin: p.insulin,
+              bloodPressure: p.blood_pressure,
+              skinThickness: p.skin_thickness,
+              pregnancies: p.pregnancies,
+              dpf: p.dpf
+            }))
+            setGlucoseData(glucoseTrend)
+          }
+        }
+      } catch (err: any) {
+        console.error('Error fetching all predictions:', err)
+        // Set a user-friendly error message
+        if (err.code === 'ECONNABORTED' || !err.response) {
+          throw new Error('Unable to connect to server. Please check your internet connection.')
+        } else if (err.response?.status === 401) {
+          throw new Error('Session expired. Please login again.')
+        } else {
+          throw new Error(err.response?.data?.error || 'Failed to load predictions')
         }
       }
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error)
       console.error('Error response:', error.response?.data)
-      setError(error.response?.data?.message || error.message || 'Failed to load dashboard data')
+      setError(error.message || error.response?.data?.error || 'Network Error')
     } finally {
       setLoading(false)
     }
@@ -148,67 +170,140 @@ export default function Dashboard() {
         <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 max-w-md w-full">
           <div className="text-red-500 text-5xl sm:text-6xl mb-4 text-center">⚠️</div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 text-center">Error Loading Dashboard</h2>
-          <p className="text-sm sm:text-base text-gray-600 mb-4 text-center">
-            {error === 'Dashboard took too long to load. Some data may be unavailable.' 
-              ? 'Connection timeout. Please check your internet and try again.'
-              : error}
-          </p>
-          <div className="space-y-3">
-            <button 
-              onClick={() => {
-                setError(null)
-                setLoading(true)
-                fetchDashboardData()
-              }}
-              className="btn-primary w-full py-3 text-sm sm:text-base"
-            >
-              Try Again
-            </button>
-            <button 
-              onClick={() => navigate('/predict')}
-              className="w-full py-3 text-sm sm:text-base border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
-            >
-              Make New Prediction
-            </button>
-          </div>
+          <p className="text-sm sm:text-base text-gray-600 mb-4 text-center">{error}</p>
+          <button 
+            onClick={() => {
+              setError(null)
+              setLoading(true)
+              fetchDashboardData()
+            }}
+            className="btn-primary w-full"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 pb-20 lg:pb-8">
       {/* Top Navigation */}
       <nav className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="text-xl sm:text-2xl font-extrabold text-blue-900">DASHBOARD</div>
-            <div className="flex items-center gap-2 sm:gap-6">
-              <Link to="/" className="hidden sm:inline text-gray-700 hover:text-blue-600 transition-colors">Home</Link>
-              <Link to="/predict" className="hidden sm:inline text-gray-700 hover:text-blue-600 transition-colors">Predict</Link>
-              <Link to="/settings" className="hidden sm:inline text-gray-700 hover:text-blue-600 transition-colors">Settings</Link>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <UserIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              <div className="text-xl sm:text-2xl font-extrabold text-blue-900">DASHBOARD</div>
+            </div>
+            <div className="hidden lg:flex items-center gap-6">
+              <Link to="/" className="text-sm text-gray-700 hover:text-blue-600 transition-colors">Home</Link>
+              <Link to="/predict" className="text-sm text-gray-700 hover:text-blue-600 transition-colors">Predict</Link>
+              <Link to="/settings" className="text-sm text-gray-700 hover:text-blue-600 transition-colors">Settings</Link>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <UserIcon className="w-5 h-5 text-blue-600" />
                 </div>
-                <span className="hidden sm:inline text-sm font-medium text-gray-700">{user?.username || 'User'}</span>
+                <span className="text-sm font-medium text-gray-700">{user?.username || 'User'}</span>
                 <button 
                   onClick={handleLogout}
-                  className="text-gray-700 hover:text-red-600 transition-colors p-2"
+                  className="text-gray-700 hover:text-red-600 transition-colors"
                   title="Logout"
                 >
-                  <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <LogOut className="w-5 h-5" />
                 </button>
               </div>
+            </div>
+            <div className="lg:hidden flex items-center gap-2">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <UserIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="text-gray-700 hover:text-red-600 transition-colors p-2"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
       </nav>
 
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="mobile-sidebar lg:hidden"
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+            <motion.aside
+              initial={{ x: -300 }}
+              animate={{ x: 0 }}
+              exit={{ x: -300 }}
+              transition={{ type: 'tween', duration: 0.3 }}
+              className="mobile-menu"
+            >
+              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Menu</h2>
+                <button onClick={() => setMobileSidebarOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="p-4 space-y-2">
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-100 text-blue-700 font-semibold"
+                >
+                  <LayoutDashboard className="w-5 h-5" />
+                  <span>Overview</span>
+                </Link>
+                <Link
+                  to="/reports"
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  <FileText className="w-5 h-5" />
+                  <span>Reports</span>
+                </Link>
+                <Link
+                  to="/settings"
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  <Settings className="w-5 h-5" />
+                  <span>Settings</span>
+                </Link>
+                {user?.role === 'admin' && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMobileSidebarOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-purple-700 hover:bg-purple-50 border-t border-gray-200 mt-4 pt-4"
+                  >
+                    <Shield className="w-5 h-5" />
+                    <span>Admin</span>
+                  </Link>
+                )}
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-8">
-          {/* Sidebar */}
-          <aside className="lg:col-span-1 space-y-2 hidden lg:block">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
+          {/* Sidebar - Desktop Only */}
+          <aside className="hidden lg:block lg:col-span-1 space-y-2">
             <motion.div whileHover={{ x: 4 }}>
               <Link
                 to="/dashboard"
@@ -253,27 +348,27 @@ export default function Dashboard() {
           </aside>
 
           {/* Main Content */}
-          <main className="lg:col-span-3 space-y-6">
+          <main className="lg:col-span-3 space-y-4 sm:space-y-6">
             {/* Prediction Cards */}
             {loading ? (
               <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-600"></div>
               </div>
             ) : latestPrediction ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 {/* Diabetes Prediction Card */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="card"
                 >
-                  <div className="text-sm text-gray-600 font-medium mb-2">DIABETES PREDICTION</div>
-                  <div className={`text-5xl font-extrabold mb-4 ${latestPrediction.prediction === 1 ? 'text-red-600' : 'text-green-600'}`}>
+                  <div className="text-xs sm:text-sm text-gray-600 font-medium mb-2">DIABETES PREDICTION</div>
+                  <div className={`text-3xl sm:text-4xl md:text-5xl font-extrabold mb-3 sm:mb-4 ${latestPrediction.prediction === 1 ? 'text-red-600' : 'text-green-600'}`}>
                     {latestPrediction.prediction === 1 ? 'Positive' : 'Negative'}
                   </div>
                   <div className={`flex items-center gap-2 ${latestPrediction.prediction === 1 ? 'text-red-600' : 'text-green-600'}`}>
-                    <Activity className="w-5 h-5" />
-                    <span className="font-medium">{latestPrediction.prediction === 1 ? 'High Risk' : 'Low Risk'}</span>
+                    <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="text-sm sm:text-base font-medium">{latestPrediction.prediction === 1 ? 'High Risk' : 'Low Risk'}</span>
                   </div>
                 </motion.div>
 
@@ -285,22 +380,22 @@ export default function Dashboard() {
                   className="card"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm text-gray-600 font-medium">PROBABILITY</div>
-                    <div className="bg-blue-500 text-white rounded-full p-3">
-                      <Brain className="w-6 h-6" />
+                    <div className="text-xs sm:text-sm text-gray-600 font-medium">PROBABILITY</div>
+                    <div className="bg-blue-500 text-white rounded-full p-2 sm:p-3">
+                      <Brain className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
                   </div>
-                  <div className="text-5xl font-extrabold text-blue-600">
+                  <div className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-blue-600">
                     {(latestPrediction.probability * 100).toFixed(0)}%
                   </div>
-                  <div className="text-sm text-gray-600 mt-2">Confidence Score</div>
+                  <div className="text-xs sm:text-sm text-gray-600 mt-2">Confidence Score</div>
                 </motion.div>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-                <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No Predictions Yet</h3>
-                <p className="text-gray-600 mb-6">Start by making your first diabetes risk prediction</p>
+              <div className="bg-white rounded-2xl shadow-lg p-8 sm:p-12 text-center">
+                <Activity className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">No Predictions Yet</h3>
+                <p className="text-sm sm:text-base text-gray-600 mb-6">Start by making your first diabetes risk prediction</p>
                 <Link to="/predict" className="btn-primary inline-block">
                   Make Prediction
                 </Link>
@@ -308,45 +403,45 @@ export default function Dashboard() {
             )}
 
             {/* Statistics Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white"
+                className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg sm:rounded-xl p-4 sm:p-6 text-white"
               >
-                <div className="text-sm opacity-90 mb-2">Total Predictions</div>
-                <div className="text-4xl font-bold">{stats.totalPredictions}</div>
+                <div className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">Total Predictions</div>
+                <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">{stats.totalPredictions}</div>
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
-                className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-6 text-white"
+                className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg sm:rounded-xl p-4 sm:p-6 text-white"
               >
-                <div className="text-sm opacity-90 mb-2">High Risk</div>
-                <div className="text-4xl font-bold">{stats.highRiskCount}</div>
+                <div className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">High Risk</div>
+                <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">{stats.highRiskCount}</div>
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white"
+                className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg sm:rounded-xl p-4 sm:p-6 text-white"
               >
-                <div className="text-sm opacity-90 mb-2">Low Risk</div>
-                <div className="text-4xl font-bold">{stats.lowRiskCount}</div>
+                <div className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">Low Risk</div>
+                <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">{stats.lowRiskCount}</div>
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.35 }}
-                className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white"
+                className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg sm:rounded-xl p-4 sm:p-6 text-white"
               >
-                <div className="text-sm opacity-90 mb-2">Reports</div>
-                <div className="text-4xl font-bold">{stats.reportsGenerated}</div>
+                <div className="text-xs sm:text-sm opacity-90 mb-1 sm:mb-2">Reports</div>
+                <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">{stats.reportsGenerated}</div>
               </motion.div>
             </div>
 
@@ -659,6 +754,9 @@ export default function Dashboard() {
           </main>
         </div>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileNav />
     </div>
   )
 }

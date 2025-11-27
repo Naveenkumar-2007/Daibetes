@@ -386,7 +386,7 @@ def save_patient_data(patient_info, prediction_data, user_id=None):
             'timestamp': timestamp.isoformat(),
             'date': timestamp.strftime('%Y-%m-%d'),
             'time': timestamp.strftime('%H:%M:%S'),
-            'created_at': timestamp.isoformat(),
+            'created_at': timestamp.timestamp(),
             'report_id': doc_id
         }
         

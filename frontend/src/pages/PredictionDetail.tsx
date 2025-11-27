@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { User, Activity, FileText, Download, BarChart3, ArrowLeft, TrendingUp } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { motion } from 'framer-motion'
 import { predictionAPI, reportAPI } from '../lib/api'
+
+// const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
 
 const featureImportance = [
   { name: 'Glucose', value: 90, color: '#3b82f6' },
@@ -17,6 +19,7 @@ export default function PredictionDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [prediction, setPrediction] = useState<any>(null)
+  // const [glucoseTrendData, setGlucoseTrendData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [generatingReport, setGeneratingReport] = useState(false)
 
@@ -29,6 +32,14 @@ export default function PredictionDetail() {
       const response = await predictionAPI.getPredictionById(id!)
       if (response.data.success) {
         setPrediction(response.data.prediction)
+        
+        // Generate glucose trend
+        // const glucose = response.data.prediction.features?.Glucose || 110
+        // const trend = Array.from({ length: 8 }, (_, i) => ({
+        //   time: String(i + 1),
+        //   value: Math.round(glucose - 40 + (i * 10) + (Math.random() * 10))
+        // }))
+        // setGlucoseTrendData(trend)
       }
     } catch (error) {
       console.error('Error fetching prediction:', error)
@@ -136,7 +147,7 @@ export default function PredictionDetail() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Health Metrics Trend - Pie Chart */}
+          {/* All Features Comparison */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -145,63 +156,60 @@ export default function PredictionDetail() {
           >
             <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
               <TrendingUp className="w-6 h-6 text-blue-600" />
-              Health Metrics Trend - All Features
+              Health Metrics Overview
             </h3>
             
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: 'Glucose', value: prediction.features?.Glucose || 0, color: '#3b82f6' },
-                      { name: 'BMI', value: (prediction.features?.BMI || 0) * 5, color: '#10b981' },
-                      { name: 'Blood Pressure', value: prediction.features?.BloodPressure || 0, color: '#f59e0b' },
-                      { name: 'Insulin', value: (prediction.features?.Insulin || 0) / 2, color: '#ef4444' },
-                      { name: 'Skin Thickness', value: (prediction.features?.SkinThickness || 0) * 2, color: '#8b5cf6' },
-                      { name: 'Pregnancies', value: (prediction.features?.Pregnancies || 0) * 10, color: '#ec4899' },
-                      { name: 'Diabetes Pedigree', value: (prediction.features?.DiabetesPedigreeFunction || 0) * 100, color: '#06b6d4' },
-                      { name: 'Age', value: prediction.features?.Age || 0, color: '#84cc16' },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={true}
-                    label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(1)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {[
-                      { name: 'Glucose', value: prediction.features?.Glucose || 0, color: '#3b82f6' },
-                      { name: 'BMI', value: (prediction.features?.BMI || 0) * 5, color: '#10b981' },
-                      { name: 'Blood Pressure', value: prediction.features?.BloodPressure || 0, color: '#f59e0b' },
-                      { name: 'Insulin', value: (prediction.features?.Insulin || 0) / 2, color: '#ef4444' },
-                      { name: 'Skin Thickness', value: (prediction.features?.SkinThickness || 0) * 2, color: '#8b5cf6' },
-                      { name: 'Pregnancies', value: (prediction.features?.Pregnancies || 0) * 10, color: '#ec4899' },
-                      { name: 'Diabetes Pedigree', value: (prediction.features?.DiabetesPedigreeFunction || 0) * 100, color: '#06b6d4' },
-                      { name: 'Age', value: prediction.features?.Age || 0, color: '#84cc16' },
-                    ].map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
+                <BarChart 
+                  data={[
+                    { name: 'Glucose', value: prediction.features?.Glucose || 0, normal: 100, unit: 'mg/dL' },
+                    { name: 'BMI', value: prediction.features?.BMI || 0, normal: 25, unit: '' },
+                    { name: 'BP', value: prediction.features?.BloodPressure || 0, normal: 80, unit: 'mmHg' },
+                    { name: 'Insulin', value: prediction.features?.Insulin || 0, normal: 80, unit: 'μU/mL' },
+                    { name: 'Skin', value: prediction.features?.SkinThickness || 0, normal: 20, unit: 'mm' },
+                    { name: 'Preg', value: prediction.features?.Pregnancies || 0, normal: 3, unit: '' },
+                    { name: 'DPF', value: (prediction.features?.DiabetesPedigreeFunction || 0) * 100, normal: 50, unit: '' },
+                    { name: 'Age', value: prediction.features?.Age || 0, normal: 30, unit: 'yrs' },
+                  ]}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#6b7280"
+                    tick={{ fontSize: 12 }}
+                  />
+                  <YAxis 
+                    stroke="#6b7280"
+                    tick={{ fontSize: 12 }}
+                  />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'white', 
                       border: '1px solid #e5e7eb',
                       borderRadius: '8px',
-                      padding: '12px'
+                      padding: '8px'
+                    }}
+                    formatter={(value: any, name: string, props: any) => {
+                      return [`${Number(value).toFixed(1)} ${props.payload.unit}`, name === 'value' ? 'Your Value' : 'Normal Range']
                     }}
                   />
-                  <Legend 
-                    verticalAlign="bottom" 
-                    height={36}
-                    formatter={(value) => <span style={{ fontSize: '12px' }}>{value}</span>}
-                  />
-                </PieChart>
+                  <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="normal" fill="#10b981" opacity={0.3} radius={[8, 8, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
             
-            <div className="mt-4 text-sm text-gray-600 text-center">
-              Distribution of health parameters contributing to your diabetes risk assessment
+            <div className="flex items-center justify-center gap-6 mt-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-600 rounded"></div>
+                <span className="text-gray-600">Your Values</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-600 opacity-30 rounded"></div>
+                <span className="text-gray-600">Normal Range</span>
+              </div>
             </div>
           </motion.div>
 
@@ -339,30 +347,21 @@ export default function PredictionDetail() {
             <h3 className="text-xl font-bold text-gray-900 mb-6">Summary</h3>
             
             <div className="flex items-start gap-4">
-              <div className={`rounded-xl p-4 flex-shrink-0 ${prediction.result === 'Diabetic' ? 'bg-red-500' : 'bg-blue-500'}`}>
+              <div className="bg-blue-500 rounded-xl p-4 flex-shrink-0">
                 <FileText className="w-8 h-8 text-white" />
               </div>
               
               <div className="flex-1">
                 <div className="text-lg font-semibold text-gray-900 mb-2">Result:</div>
                 <p className="text-gray-600 leading-relaxed">
-                  {prediction.result === 'Diabetic' 
-                    ? `Based on your health metrics, the analysis predicts that you are at HIGH RISK of diabetes. Your glucose level of ${prediction.features?.Glucose?.toFixed(1) || 'N/A'} mg/dL and BMI of ${prediction.features?.BMI?.toFixed(1) || 'N/A'} kg/m² indicate elevated risk factors. Please consult with a healthcare professional immediately.`
-                    : `Based on your health metrics, the analysis predicts LOW RISK of diabetes. Your glucose level of ${prediction.features?.Glucose?.toFixed(1) || 'N/A'} mg/dL and overall health parameters are within acceptable ranges. Continue maintaining a healthy lifestyle.`
-                  }
+                  Predicts that the patient is at risk of diabetes based on the input data.
                 </p>
               </div>
 
-              <div className={`rounded-xl p-4 flex-shrink-0 ${prediction.result === 'Diabetic' ? 'bg-red-500' : 'bg-green-500'}`}>
-                {prediction.result === 'Diabetic' ? (
-                  <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                  </svg>
-                ) : (
-                  <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  </svg>
-                )}
+              <div className="bg-blue-500 rounded-xl p-4 flex-shrink-0">
+                <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 4.97 5.89 11.05 6.32 11.49.38.4 1.0.4 1.38 0C13.11 20.05 19 14.97 19 10c0-4.87-3.13-8-7-8zm-1 13.5v-3H8.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5H11v-3h2v3h2.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5H13v3h-2z"/>
+                </svg>
               </div>
             </div>
           </motion.div>

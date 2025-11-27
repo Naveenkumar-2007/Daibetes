@@ -5,13 +5,36 @@ const api = axios.create({
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  timeout: 30000, // 30 second timeout
 })
+
+// Add retry logic for network errors
+let retryCount = 0
+const MAX_RETRIES = 3
 
 // Add response interceptor for better error handling
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response) => {
+    retryCount = 0 // Reset on success
+    return response
+  },
+  async (error) => {
+    const config = error.config
+
+    // If it's a network error and we haven't exceeded retries
+    if (error.code === 'ECONNABORTED' || error.message === 'Network Error' || !error.response) {
+      if (retryCount < MAX_RETRIES && config) {
+        retryCount++
+        console.log(`Retrying request... Attempt ${retryCount} of ${MAX_RETRIES}`)
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+        
+        return api(config)
+      }
+    }
+    
     if (error.response) {
       // Server responded with error status
       console.error('API Error:', error.response.status, error.response.data)
@@ -22,6 +45,8 @@ api.interceptors.response.use(
       // Other errors
       console.error('Request Error:', error.message)
     }
+    
+    retryCount = 0 // Reset for next request
     return Promise.reject(error)
   }
 )
@@ -92,12 +117,13 @@ export const reportAPI = {
 
 // User Settings APIs
 export const userAPI = {
-  updateProfile: (data: any) => api.post('/api/user/update_profile', data),
+  updateProfile: (data: any) => api.post('/api/profile/update', data),
   
-  changePassword: (currentPassword: string, newPassword: string) =>
-    api.post('/api/user/change_password', {
+  changePassword: (currentPassword: string, newPassword: string, confirmPassword: string) =>
+    api.post('/api/change_password', {
       current_password: currentPassword,
-      new_password: newPassword
+      new_password: newPassword,
+      confirm_password: confirmPassword
     })
 }
 
@@ -105,7 +131,9 @@ export const userAPI = {
 export const adminAPI = {
   getUsers: () => api.get('/api/admin/users'),
   
-  getStats: () => api.get('/api/admin/stats')
+  getStats: () => api.get('/api/admin/stats'),
+  
+  deleteUser: (userId: string) => api.delete(`/api/admin/users/${userId}`)
 }
 
 export default api

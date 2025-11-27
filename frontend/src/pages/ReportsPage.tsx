@@ -42,29 +42,17 @@ export default function ReportsPage() {
   const viewReport = async (reportId: string) => {
     try {
       const response = await reportAPI.downloadReport(reportId)
-      
-      // Check if response is PDF
-      const contentType = response.headers['content-type'] || ''
-      
-      if (contentType.includes('application/pdf')) {
-        // It's a PDF - open in new window instead of modal
-        const blob = new Blob([response.data], { type: 'application/pdf' })
-        const url = window.URL.createObjectURL(blob)
-        window.open(url, '_blank')
-        window.URL.revokeObjectURL(url)
+      // Handle the response as text
+      let text = ''
+      if (typeof response.data === 'string') {
+        text = response.data
+      } else if (response.data instanceof Blob) {
+        text = await response.data.text()
       } else {
-        // Handle text reports
-        let text = ''
-        if (typeof response.data === 'string') {
-          text = response.data
-        } else if (response.data instanceof Blob) {
-          text = await response.data.text()
-        } else {
-          text = JSON.stringify(response.data, null, 2)
-        }
-        setReportContent(text)
-        setViewingReport(reportId)
+        text = JSON.stringify(response.data, null, 2)
       }
+      setReportContent(text)
+      setViewingReport(reportId)
     } catch (error: any) {
       console.error('Error viewing report:', error)
       alert(error.response?.data?.message || 'Failed to view report')
@@ -73,50 +61,31 @@ export default function ReportsPage() {
 
   const downloadReport = async (reportId: string, patientName: string) => {
     try {
-      console.log('Downloading report:', reportId)
       const response = await reportAPI.downloadReport(reportId)
-      console.log('Response received:', response.headers['content-type'])
-      
-      // Check content type
-      const contentType = response.headers['content-type'] || ''
-      const isPDF = contentType.includes('application/pdf') || contentType.includes('octet-stream')
       
       // Create blob from response data
       let blob: Blob
       if (response.data instanceof Blob) {
         blob = response.data
-      } else if (isPDF) {
-        blob = new Blob([response.data], { type: 'application/pdf' })
       } else if (typeof response.data === 'string') {
         blob = new Blob([response.data], { type: 'text/plain' })
       } else {
         blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'text/plain' })
       }
       
-      console.log('Blob created, size:', blob.size)
-      
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      const fileExtension = isPDF ? 'pdf' : 'txt'
-      const timestamp = new Date().toISOString().split('T')[0]
-      const fileName = `diabetes_report_${patientName.replace(/\s+/g, '_')}_${timestamp}.${fileExtension}`
+      const fileName = `diabetes_report_${patientName.replace(/\s+/g, '_')}_${new Date().toLocaleDateString().replace(/\//g, '-')}.txt`
       link.setAttribute('download', fileName)
-      link.style.display = 'none'
       document.body.appendChild(link)
       link.click()
-      
-      setTimeout(() => {
-        link.remove()
-        window.URL.revokeObjectURL(url)
-      }, 100)
-      
-      console.log('Download complete!')
-      alert('✅ Report downloaded successfully!')
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      alert('Report downloaded successfully!')
     } catch (error: any) {
       console.error('Error downloading report:', error)
-      console.error('Error details:', error.response)
-      alert('❌ ' + (error.response?.data?.error || 'Failed to download report'))
+      alert(error.response?.data?.message || 'Failed to download report')
     }
   }
 
@@ -141,25 +110,25 @@ export default function ReportsPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {/* Top Navigation */}
       <nav className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="text-xl sm:text-2xl font-extrabold text-blue-900">MY REPORTS</div>
-            <div className="flex items-center gap-3 sm:gap-6">
-              <Link to="/dashboard" className="text-sm sm:text-base text-gray-700 hover:text-blue-600 transition-colors">Dashboard</Link>
-              <Link to="/predict" className="text-sm sm:text-base text-gray-700 hover:text-blue-600 transition-colors">New</Link>
+            <div className="text-2xl font-extrabold text-blue-900">MY REPORTS</div>
+            <div className="flex items-center gap-6">
+              <Link to="/dashboard" className="text-gray-700 hover:text-blue-600 transition-colors">Dashboard</Link>
+              <Link to="/predict" className="text-gray-700 hover:text-blue-600 transition-colors">New Prediction</Link>
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 sm:mb-8"
+          className="mb-8"
         >
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Medical Reports</h1>
-          <p className="text-sm sm:text-base text-gray-600">View and download your diabetes risk assessment reports</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Medical Reports</h1>
+          <p className="text-gray-600">View and download your diabetes risk assessment reports</p>
         </motion.div>
 
         {loading ? (
@@ -210,28 +179,28 @@ export default function ReportsPage() {
               </motion.div>
             )}
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {reports.map((report, index) => (
                 <motion.div
                   key={report.report_id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white rounded-xl shadow-lg p-4 sm:p-6 hover:shadow-xl transition-all"
+                  className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className={`p-2 sm:p-3 rounded-lg ${
+                    <div className={`p-3 rounded-lg ${
                       report.prediction_result === 'Positive' || report.prediction_result?.includes('High')
                         ? 'bg-red-100' 
                         : 'bg-green-100'
                     }`}>
-                      <FileText className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                      <FileText className={`w-6 h-6 ${
                         report.prediction_result === 'Positive' || report.prediction_result?.includes('High')
                           ? 'text-red-600' 
                           : 'text-green-600'
                       }`} />
                     </div>
-                    <span className={`text-xs font-semibold px-2 sm:px-3 py-1 rounded-full ${
+                    <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
                       report.prediction_result === 'Positive' || report.prediction_result?.includes('High')
                         ? 'bg-red-100 text-red-700'
                         : 'bg-green-100 text-green-700'
@@ -240,45 +209,45 @@ export default function ReportsPage() {
                     </span>
                   </div>
 
-                  <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-3">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3">
                     {report.patient_name && report.patient_name !== 'Unknown' ? report.patient_name : 'Patient Report'}
                   </h3>
 
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <TrendingUp className="w-4 h-4 flex-shrink-0" />
+                      <TrendingUp className="w-4 h-4" />
                       <span>Risk: {(report.probability * 100).toFixed(1)}%</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Calendar className="w-4 h-4 flex-shrink-0" />
+                      <Calendar className="w-4 h-4" />
                       <span>{new Date(report.generated_at).toLocaleDateString()}</span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => viewReport(report.report_id)}
-                      className="flex flex-col sm:flex-row items-center justify-center gap-1 bg-blue-600 text-white px-2 sm:px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
+                      className="flex items-center justify-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                       title="View Report"
                     >
                       <Eye className="w-4 h-4" />
-                      <span className="hidden sm:inline">View</span>
+                      View
                     </button>
                     <button
                       onClick={() => downloadReport(report.report_id, report.patient_name || 'patient')}
-                      className="flex flex-col sm:flex-row items-center justify-center gap-1 bg-green-600 text-white px-2 sm:px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-xs sm:text-sm"
+                      className="flex items-center justify-center gap-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
                       title="Download Report"
                     >
                       <Download className="w-4 h-4" />
-                      <span className="hidden sm:inline">Download</span>
+                      Download
                     </button>
                     <button
                       onClick={() => deleteReport(report.report_id)}
-                      className="flex flex-col sm:flex-row items-center justify-center gap-1 bg-red-600 text-white px-2 sm:px-3 py-2 rounded-lg hover:bg-red-700 transition-colors text-xs sm:text-sm"
+                      className="flex items-center justify-center gap-1 bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
                       title="Delete Report"
                     >
                       <Trash2 className="w-4 h-4" />
-                      <span className="hidden sm:inline">Delete</span>
+                      Delete
                     </button>
                   </div>
                 </motion.div>

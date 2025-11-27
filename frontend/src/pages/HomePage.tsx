@@ -1,73 +1,103 @@
 import { Link } from 'react-router-dom'
-import { Activity, Brain, Shield, TrendingUp, User } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Activity, Brain, Shield, TrendingUp, User, Menu, X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useState } from 'react'
 
 export default function HomePage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-blue-50">
       {/* Navigation */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="text-2xl font-extrabold text-blue-900">DIABETES AI</div>
-              <div className="hidden md:flex gap-8 ml-12">
-                <a href="#home" className="text-gray-700 hover:text-blue-600 transition-colors">Home</a>
-                <a href="#about" className="text-gray-700 hover:text-blue-600 transition-colors">About</a>
-                <a href="#services" className="text-gray-700 hover:text-blue-600 transition-colors">Services</a>
-                <a href="#contact" className="text-gray-700 hover:text-blue-600 transition-colors">Contact</a>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="text-xl sm:text-2xl font-extrabold text-blue-900">DIABETES AI</div>
+              <div className="hidden md:flex gap-6 lg:gap-8 ml-8 lg:ml-12">
+                <a href="#home" className="text-sm lg:text-base text-gray-700 hover:text-blue-600 transition-colors">Home</a>
+                <a href="#about" className="text-sm lg:text-base text-gray-700 hover:text-blue-600 transition-colors">About</a>
+                <a href="#services" className="text-sm lg:text-base text-gray-700 hover:text-blue-600 transition-colors">Services</a>
+                <a href="#contact" className="text-sm lg:text-base text-gray-700 hover:text-blue-600 transition-colors">Contact</a>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <Link to="/login" className="hidden md:inline-block text-gray-700 hover:text-blue-600 transition-colors">Sign in</Link>
-              <Link to="/register" className="btn-primary">Get Started</Link>
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Link to="/login" className="hidden sm:inline-block text-sm lg:text-base text-gray-700 hover:text-blue-600 transition-colors">Sign in</Link>
+              <Link to="/register" className="btn-primary text-xs sm:text-sm px-3 sm:px-6">Get Started</Link>
+              <button 
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="md:hidden border-t border-gray-200 bg-white overflow-hidden"
+            >
+              <div className="px-4 py-4 space-y-3">
+                <a href="#home" className="block py-2 text-gray-700 hover:text-blue-600 transition-colors" onClick={() => setMobileMenuOpen(false)}>Home</a>
+                <a href="#about" className="block py-2 text-gray-700 hover:text-blue-600 transition-colors" onClick={() => setMobileMenuOpen(false)}>About</a>
+                <a href="#services" className="block py-2 text-gray-700 hover:text-blue-600 transition-colors" onClick={() => setMobileMenuOpen(false)}>Services</a>
+                <a href="#contact" className="block py-2 text-gray-700 hover:text-blue-600 transition-colors" onClick={() => setMobileMenuOpen(false)}>Contact</a>
+                <Link to="/login" className="block py-2 text-gray-700 hover:text-blue-600 transition-colors" onClick={() => setMobileMenuOpen(false)}>Sign in</Link>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* Hero Section */}
-      <section id="home" className="max-w-7xl mx-auto px-6 py-16 md:py-24">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <section id="home" className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-16 md:py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           {/* Left Content */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6 text-center lg:text-left"
           >
-            <h1 className="text-5xl md:text-6xl font-extrabold text-blue-900 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-blue-900 leading-tight">
               Diabetes Prediction
             </h1>
-            <p className="text-xl text-gray-600 leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 leading-relaxed">
               Predict your risk of diabetes with advanced machine learning
             </p>
             
-            <div className="flex flex-wrap gap-4">
-              <Link to="/predict" className="btn-primary inline-flex items-center gap-2">
-                <Activity className="w-5 h-5" />
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center lg:justify-start">
+              <Link to="/predict" className="btn-primary inline-flex items-center justify-center gap-2">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
                 Check Now
               </Link>
               <a href="#about" className="btn-secondary">Learn More</a>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-8">
-              <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-gray-200">
-                <div className="text-sm text-gray-600">Accuracy</div>
-                <div className="text-2xl font-bold text-blue-700">89%</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pt-6 sm:pt-8">
+              <div className="bg-white/60 backdrop-blur-sm rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-200">
+                <div className="text-xs sm:text-sm text-gray-600">Accuracy</div>
+                <div className="text-xl sm:text-2xl font-bold text-blue-700">89%</div>
               </div>
-              <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-gray-200">
-                <div className="text-sm text-gray-600">Patients</div>
-                <div className="text-2xl font-bold text-blue-700">1.2K+</div>
+              <div className="bg-white/60 backdrop-blur-sm rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-200">
+                <div className="text-xs sm:text-sm text-gray-600">Patients</div>
+                <div className="text-xl sm:text-2xl font-bold text-blue-700">1.2K+</div>
               </div>
-              <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-gray-200">
-                <div className="text-sm text-gray-600">Model</div>
-                <div className="text-lg font-bold text-blue-700">AI</div>
+              <div className="bg-white/60 backdrop-blur-sm rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-200">
+                <div className="text-xs sm:text-sm text-gray-600">Model</div>
+                <div className="text-base sm:text-lg font-bold text-blue-700">AI</div>
               </div>
-              <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-gray-200">
-                <div className="text-sm text-gray-600">Secure</div>
-                <div className="text-lg font-bold text-blue-700">100%</div>
+              <div className="bg-white/60 backdrop-blur-sm rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-200">
+                <div className="text-xs sm:text-sm text-gray-600">Secure</div>
+                <div className="text-base sm:text-lg font-bold text-blue-700">100%</div>
               </div>
             </div>
           </motion.div>
@@ -77,20 +107,20 @@ export default function HomePage() {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative"
+            className="relative hidden lg:block"
           >
-            <div className="relative h-[500px] flex items-center justify-center">
+            <div className="relative h-[400px] lg:h-[500px] flex items-center justify-center">
               {/* AI Badge */}
-              <div className="absolute top-8 right-8 z-10 bg-blue-500 text-white rounded-full w-24 h-24 flex items-center justify-center border-4 border-white shadow-xl">
+              <div className="absolute top-8 right-8 z-10 bg-blue-500 text-white rounded-full w-20 lg:w-24 h-20 lg:h-24 flex items-center justify-center border-4 border-white shadow-xl">
                 <div className="text-center">
-                  <Brain className="w-8 h-8 mx-auto" />
-                  <div className="text-xl font-bold">AI</div>
+                  <Brain className="w-6 lg:w-8 h-6 lg:h-8 mx-auto" />
+                  <div className="text-lg lg:text-xl font-bold">AI</div>
                 </div>
               </div>
 
               {/* DNA Helix Icon */}
               <div className="absolute left-0 bottom-32">
-                <svg className="w-32 h-32 text-blue-400" viewBox="0 0 100 100" fill="currentColor">
+                <svg className="w-24 lg:w-32 h-24 lg:h-32 text-blue-400" viewBox="0 0 100 100" fill="currentColor">
                   <path d="M30,20 Q40,10 50,20 T70,20" stroke="currentColor" strokeWidth="3" fill="none"/>
                   <path d="M30,40 Q40,30 50,40 T70,40" stroke="currentColor" strokeWidth="3" fill="none"/>
                   <path d="M30,60 Q40,50 50,60 T70,60" stroke="currentColor" strokeWidth="3" fill="none"/>
