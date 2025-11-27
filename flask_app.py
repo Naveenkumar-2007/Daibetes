@@ -2925,10 +2925,9 @@ def generate_beautiful_pdf(report, report_id):
         story.append(Paragraph("<i>AI-powered analysis is currently unavailable. Please consult with your healthcare provider for detailed recommendations.</i>", body_style))
         story.append(Spacer(1, 0.3*inch))
     else:
-    
-    try:
-        # Generate AI-powered personalized analysis using Groq
-        ai_prompt = f"""You are Dr. Sarah Mitchell, MD, FACP, a board-certified endocrinologist with 15 years of experience in diabetes care and metabolic disorders at City General Hospital.
+        try:
+            # Generate AI-powered personalized analysis using Groq
+            ai_prompt = f"""You are Dr. Sarah Mitchell, MD, FACP, a board-certified endocrinologist with 15 years of experience in diabetes care and metabolic disorders at City General Hospital.
 
 PATIENT CLINICAL DATA:
 - Age: {age} years
@@ -3039,113 +3038,113 @@ CRITICAL REQUIREMENTS:
 - Use bullet points for lists (•)
 - Minimum 2000 words of detailed medical analysis"""
 
-        # Call Groq AI for analysis
-        ai_response = current_llm.invoke(ai_prompt)
-        ai_analysis = ai_response.content if hasattr(ai_response, 'content') else str(ai_response)
-        
-        # Format the AI response with proper styling
-        analysis_paragraphs = ai_analysis.split('\n')
-        
-        for para in analysis_paragraphs:
-            para = para.strip()
-            if not para:
-                continue
+            # Call Groq AI for analysis
+            ai_response = current_llm.invoke(ai_prompt)
+            ai_analysis = ai_response.content if hasattr(ai_response, 'content') else str(ai_response)
             
-            # Check if it's a heading (contains ** or starts with number followed by period/dot)
-            if '**' in para or (para and para[0].isdigit() and '.' in para[:5]):
-                # Remove ** markers and format as section heading
-                clean_heading = para.replace('**', '').strip()
-                section_heading_style = ParagraphStyle(
-                    'AIHeading',
-                    parent=styles['Normal'],
-                    fontSize=11,
-                    textColor=colors.HexColor('#1e40af'),
-                    fontName='Helvetica-Bold',
-                    spaceAfter=6,
-                    spaceBefore=12,
-                    leftIndent=0
-                )
-                story.append(Paragraph(clean_heading, section_heading_style))
+            # Format the AI response with proper styling
+            analysis_paragraphs = ai_analysis.split('\n')
+            
+            for para in analysis_paragraphs:
+                para = para.strip()
+                if not para:
+                    continue
+                
+                # Check if it's a heading (contains ** or starts with number followed by period/dot)
+                if '**' in para or (para and para[0].isdigit() and '.' in para[:5]):
+                    # Remove ** markers and format as section heading
+                    clean_heading = para.replace('**', '').strip()
+                    section_heading_style = ParagraphStyle(
+                        'AIHeading',
+                        parent=styles['Normal'],
+                        fontSize=11,
+                        textColor=colors.HexColor('#1e40af'),
+                        fontName='Helvetica-Bold',
+                        spaceAfter=6,
+                        spaceBefore=12,
+                        leftIndent=0
+                    )
+                    story.append(Paragraph(clean_heading, section_heading_style))
+                else:
+                    # Regular paragraph or bullet point
+                    content_style = ParagraphStyle(
+                        'AIContent',
+                        parent=styles['Normal'],
+                        fontSize=10,
+                        leading=14,
+                        textColor=colors.HexColor('#1e293b'),
+                        alignment=TA_JUSTIFY if not para.startswith(('•', '-', '*')) else TA_LEFT,
+                        leftIndent=10 if para.startswith(('•', '-', '*')) else 0,
+                        spaceAfter=4
+                    )
+                    story.append(Paragraph(para, content_style))
+            
+        except Exception as e:
+            # Fallback recommendations if AI fails
+            print(f"AI generation failed: {str(e)}, using fallback recommendations")
+            
+            fallback_style = ParagraphStyle('Fallback', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#1e293b'))
+            
+            story.append(Paragraph("<b>CLINICAL IMPRESSION:</b>", fallback_style))
+            story.append(Spacer(1, 0.05*inch))
+            story.append(Paragraph(
+                f"Based on comprehensive metabolic assessment, the patient presents with {risk_level.lower()} for developing Type 2 Diabetes Mellitus. "
+                f"The clinical parameters including fasting glucose of {glucose} mg/dL and BMI of {bmi} kg/m² warrant careful monitoring and proactive intervention.",
+                fallback_style
+            ))
+            story.append(Spacer(1, 0.1*inch))
+            
+            story.append(Paragraph("<b>KEY FINDINGS:</b>", fallback_style))
+            story.append(Spacer(1, 0.05*inch))
+            findings = [
+                f"• Fasting glucose level of {glucose} mg/dL {'exceeds normal range' if glucose != 'N/A' and float(glucose) > 100 else 'within normal limits'}",
+                f"• BMI of {bmi} kg/m² indicates {'overweight status requiring intervention' if bmi != 'N/A' and float(bmi) > 25 else 'healthy weight range'}",
+                f"• Blood pressure reading of {bp} mmHg requires {'close monitoring' if bp != 'N/A' and float(bp) > 80 else 'routine observation'}",
+                f"• Diabetes pedigree function of {dpf} suggests {'significant familial predisposition' if dpf != 'N/A' and float(dpf) > 0.5 else 'moderate genetic risk'}"
+            ]
+            for finding in findings:
+                story.append(Paragraph(finding, fallback_style))
+            story.append(Spacer(1, 0.1*inch))
+            
+            story.append(Paragraph("<b>PERSONALIZED RECOMMENDATIONS:</b>", fallback_style))
+            story.append(Spacer(1, 0.05*inch))
+            if risk_level.lower() == 'high':
+                recs = [
+                    "• <b>Urgent:</b> Schedule appointment with endocrinologist within 1-2 weeks",
+                    "• Complete comprehensive metabolic panel including HbA1c, lipid profile, and kidney function tests",
+                    "• Implement carbohydrate-controlled diet (45-60g per meal) with emphasis on low glycemic index foods",
+                    "• Begin supervised exercise program: 30 minutes moderate-intensity aerobic activity, 5 days/week",
+                    "• Daily self-monitoring of blood glucose (fasting and 2-hour postprandial)",
+                    "• Consider metformin therapy pending physician evaluation",
+                    "• Weight reduction target: 7-10% of current body weight over 6 months",
+                    "• Consultation with certified diabetes educator for comprehensive education"
+                ]
             else:
-                # Regular paragraph or bullet point
-                content_style = ParagraphStyle(
-                    'AIContent',
-                    parent=styles['Normal'],
-                    fontSize=10,
-                    leading=14,
-                    textColor=colors.HexColor('#1e293b'),
-                    alignment=TA_JUSTIFY if not para.startswith(('•', '-', '*')) else TA_LEFT,
-                    leftIndent=10 if para.startswith(('•', '-', '*')) else 0,
-                    spaceAfter=4
-                )
-                story.append(Paragraph(para, content_style))
-        
-    except Exception as e:
-        # Fallback recommendations if AI fails
-        print(f"AI generation failed: {str(e)}, using fallback recommendations")
-        
-        fallback_style = ParagraphStyle('Fallback', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#1e293b'))
-        
-        story.append(Paragraph("<b>CLINICAL IMPRESSION:</b>", fallback_style))
-        story.append(Spacer(1, 0.05*inch))
-        story.append(Paragraph(
-            f"Based on comprehensive metabolic assessment, the patient presents with {risk_level.lower()} for developing Type 2 Diabetes Mellitus. "
-            f"The clinical parameters including fasting glucose of {glucose} mg/dL and BMI of {bmi} kg/m² warrant careful monitoring and proactive intervention.",
-            fallback_style
-        ))
-        story.append(Spacer(1, 0.1*inch))
-        
-        story.append(Paragraph("<b>KEY FINDINGS:</b>", fallback_style))
-        story.append(Spacer(1, 0.05*inch))
-        findings = [
-            f"• Fasting glucose level of {glucose} mg/dL {'exceeds normal range' if glucose != 'N/A' and float(glucose) > 100 else 'within normal limits'}",
-            f"• BMI of {bmi} kg/m² indicates {'overweight status requiring intervention' if bmi != 'N/A' and float(bmi) > 25 else 'healthy weight range'}",
-            f"• Blood pressure reading of {bp} mmHg requires {'close monitoring' if bp != 'N/A' and float(bp) > 80 else 'routine observation'}",
-            f"• Diabetes pedigree function of {dpf} suggests {'significant familial predisposition' if dpf != 'N/A' and float(dpf) > 0.5 else 'moderate genetic risk'}"
-        ]
-        for finding in findings:
-            story.append(Paragraph(finding, fallback_style))
-        story.append(Spacer(1, 0.1*inch))
-        
-        story.append(Paragraph("<b>PERSONALIZED RECOMMENDATIONS:</b>", fallback_style))
-        story.append(Spacer(1, 0.05*inch))
-        if risk_level.lower() == 'high':
-            recs = [
-                "• <b>Urgent:</b> Schedule appointment with endocrinologist within 1-2 weeks",
-                "• Complete comprehensive metabolic panel including HbA1c, lipid profile, and kidney function tests",
-                "• Implement carbohydrate-controlled diet (45-60g per meal) with emphasis on low glycemic index foods",
-                "• Begin supervised exercise program: 30 minutes moderate-intensity aerobic activity, 5 days/week",
-                "• Daily self-monitoring of blood glucose (fasting and 2-hour postprandial)",
-                "• Consider metformin therapy pending physician evaluation",
-                "• Weight reduction target: 7-10% of current body weight over 6 months",
-                "• Consultation with certified diabetes educator for comprehensive education"
+                recs = [
+                    "• Schedule follow-up appointment in 3-6 months for reassessment",
+                    "• Annual comprehensive metabolic screening recommended",
+                    "• Maintain balanced Mediterranean-style diet rich in vegetables, fruits, whole grains, and lean proteins",
+                    "• Regular physical activity: minimum 150 minutes moderate-intensity exercise per week",
+                    "• Monitor fasting glucose quarterly with home glucometer",
+                    "• Maintain healthy weight through balanced nutrition and regular activity",
+                    "• Annual eye examination and foot care assessment",
+                    "• Continue current preventive health measures"
+                ]
+            for rec in recs:
+                story.append(Paragraph(rec, fallback_style))
+            story.append(Spacer(1, 0.1*inch))
+            
+            story.append(Paragraph("<b>IMPORTANT PRECAUTIONS:</b>", fallback_style))
+            story.append(Spacer(1, 0.05*inch))
+            precautions = [
+                "• Monitor for symptoms of hyperglycemia: increased thirst, frequent urination, unexplained fatigue, blurred vision",
+                "• Avoid prolonged fasting or extreme dietary restrictions without medical supervision",
+                "• Report any unusual symptoms, wounds that heal slowly, or recurrent infections immediately",
+                "• Maintain adequate hydration (8-10 glasses of water daily)",
+                "• Avoid high-sugar beverages and processed foods with added sugars"
             ]
-        else:
-            recs = [
-                "• Schedule follow-up appointment in 3-6 months for reassessment",
-                "• Annual comprehensive metabolic screening recommended",
-                "• Maintain balanced Mediterranean-style diet rich in vegetables, fruits, whole grains, and lean proteins",
-                "• Regular physical activity: minimum 150 minutes moderate-intensity exercise per week",
-                "• Monitor fasting glucose quarterly with home glucometer",
-                "• Maintain healthy weight through balanced nutrition and regular activity",
-                "• Annual eye examination and foot care assessment",
-                "• Continue current preventive health measures"
-            ]
-        for rec in recs:
-            story.append(Paragraph(rec, fallback_style))
-        story.append(Spacer(1, 0.1*inch))
-        
-        story.append(Paragraph("<b>IMPORTANT PRECAUTIONS:</b>", fallback_style))
-        story.append(Spacer(1, 0.05*inch))
-        precautions = [
-            "• Monitor for symptoms of hyperglycemia: increased thirst, frequent urination, unexplained fatigue, blurred vision",
-            "• Avoid prolonged fasting or extreme dietary restrictions without medical supervision",
-            "• Report any unusual symptoms, wounds that heal slowly, or recurrent infections immediately",
-            "• Maintain adequate hydration (8-10 glasses of water daily)",
-            "• Avoid high-sugar beverages and processed foods with added sugars"
-        ]
-        for precaution in precautions:
-            story.append(Paragraph(precaution, fallback_style))
+            for precaution in precautions:
+                story.append(Paragraph(precaution, fallback_style))
     
     story.append(Spacer(1, 0.2*inch))
     
