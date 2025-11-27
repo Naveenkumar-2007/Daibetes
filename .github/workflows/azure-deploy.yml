@@ -146,20 +146,54 @@ jobs:
 
       - name: 🧪 Verify Deployment
         run: |
-          echo "🧪 Waiting for application to start (90 seconds)..."
-          sleep 90
-          
+          echo "🧪 Testing deployment health..."
           APP_URL="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" $APP_URL || echo "000")
           
-          echo "📊 HTTP Status Code: $HTTP_CODE"
+          # Try health check endpoint first (faster)
+          echo "Checking /health endpoint..."
+          HEALTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/health" -m 10 || echo "000")
           
-          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
-            echo "✅ Application is running successfully!"
-            echo "🌐 URL: $APP_URL"
+          if [ "$HEALTH_CODE" = "200" ]; then
+            echo "✅ Health check passed!"
           else
-            echo "⚠️ Application returned status $HTTP_CODE"
-            echo "💡 Check Azure logs for more details"
+            echo "⚠️ Health check returned $HEALTH_CODE, waiting for app startup..."
+            
+            # Wait up to 2 minutes for app to start
+            MAX_ATTEMPTS=12
+            ATTEMPT=0
+            
+            while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+              ATTEMPT=$((ATTEMPT + 1))
+              echo "Attempt $ATTEMPT of $MAX_ATTEMPTS..."
+              
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL" -L -m 15 || echo "000")
+              echo "  Status: $HTTP_CODE"
+              
+              if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
+                echo "✅ Application is responding!"
+                break
+              fi
+              
+              if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+                echo "  Waiting 10 seconds before retry..."
+                sleep 10
+              fi
+            done
+          fi
+          
+          # Final status check
+          FINAL_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL" -L -m 15 || echo "000")
+          echo ""
+          echo "📊 Final Status: $FINAL_CODE"
+          
+          if [ "$FINAL_CODE" = "200" ] || [ "$FINAL_CODE" = "302" ]; then
+            echo "✅ Deployment successful!"
+            echo "🌐 Application URL: $APP_URL"
+          else
+            echo "⚠️ Application may still be starting (Status: $FINAL_CODE)"
+            echo "💡 The app typically takes 2-3 minutes to fully start"
+            echo "💡 Check status at: $APP_URL"
+            echo "💡 View logs: az webapp log tail --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }}"
           fi
 
       - name: 📝 Deployment Summary

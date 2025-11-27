@@ -13,27 +13,14 @@ echo "🖥️  Hostname: $(hostname)"
 echo "📁 Creating directories..."
 mkdir -p logs/predictions logs/drift_reports logs/performance_reports
 mkdir -p static/reports static/app
-mkdir -p artifacts data/raw data/processed reports
+mkdir -p artifacts data/raw data/processed reports /tmp/matplotlib
 
 # Set environment variables
 export PYTHONUNBUFFERED=1
 export PYTHONDONTWRITEBYTECODE=1
 export MPLCONFIGDIR=/tmp/matplotlib
 
-# Create matplotlib cache directory
-mkdir -p /tmp/matplotlib
-
 echo "✅ Environment configured"
-
-# Install dependencies if not already installed
-if [ ! -d "/home/site/wwwroot/antenv" ]; then
-    echo "📦 Installing dependencies (first run)..."
-    python3.11 -m pip install --upgrade pip --user
-    python3.11 -m pip install -r requirements.txt --user --no-cache-dir
-    echo "✅ Dependencies installed"
-else
-    echo "📦 Dependencies already installed"
-fi
 
 # Verify critical files exist
 echo "🔍 Verifying application files..."
@@ -48,28 +35,39 @@ fi
 
 echo "✅ Application files verified"
 
-# Determine the port (Azure sets PORT environment variable)
-PORT="${PORT:-8000}"
+# Run startup test
+if [ -f "startup_test.py" ]; then
+    echo "🧪 Running startup tests..."
+    python startup_test.py
+    if [ $? -ne 0 ]; then
+        echo "⚠️ Startup test failed, but continuing..."
+    fi
+fi
+
+# Determine the port (Azure sets PORT or WEBSITES_PORT environment variable)
+PORT="${WEBSITES_PORT:-${PORT:-8000}}"
 
 echo "🌐 Starting Gunicorn on port $PORT..."
 echo "⚙️  Configuration:"
-echo "   - Workers: 2 (reduced for faster startup)"
-echo "   - Threads: 4"
-echo "   - Timeout: 300s"
-echo "   - Graceful timeout: 120s"
+echo "   - Workers: 1 (optimized for fast startup)"
+echo "   - Threads: 8"
+echo "   - Timeout: 120s (reduced)"
+echo "   - Preload: disabled"
 
-# Start Gunicorn with optimized settings for Azure (faster startup)
+# Start Gunicorn with optimized settings for Azure
+# Single worker for faster startup, more threads to handle concurrent requests
 exec gunicorn --bind=0.0.0.0:$PORT \
-         --workers=2 \
-         --threads=4 \
-         --timeout=300 \
-         --graceful-timeout=120 \
+         --workers=1 \
+         --threads=8 \
+         --timeout=120 \
+         --graceful-timeout=30 \
          --keep-alive=5 \
-         --max-requests=1000 \
+         --max-requests=500 \
          --max-requests-jitter=50 \
          --access-logfile=- \
          --error-logfile=- \
          --log-level=info \
          --worker-class=gthread \
+         --worker-tmp-dir=/dev/shm \
          flask_app:app
 
