@@ -1,0 +1,139 @@
+name: Deploy to Azure Web App
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: diabetes-predictor-ai
+  AZURE_RESOURCE_GROUP: diabetes-predictor-rg
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy to Azure
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: 📦 Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 🔧 Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🎨 Build React Frontend
+        run: |
+          cd frontend
+          npm ci --prefer-offline --no-audit
+          npm run build
+          
+      - name: 📁 Copy frontend to static folder
+        run: |
+          mkdir -p static/app
+          cp -r frontend/dist/* static/app/
+          echo "✅ Frontend copied to static/app/"
+
+      - name: 🔐 Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 🚀 Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: .
+
+      - name: ⚙️ Configure Azure App Settings
+        run: |
+          echo "⚙️ Configuring environment variables..."
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings \
+              GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
+              PINECONE_API_KEY="${{ secrets.PINECONE_API_KEY }}" \
+              FIREBASE_API_KEY="${{ secrets.FIREBASE_API_KEY }}" \
+              FIREBASE_PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}" \
+              FIREBASE_PRIVATE_KEY_ID="${{ secrets.FIREBASE_PRIVATE_KEY_ID }}" \
+              FIREBASE_CLIENT_EMAIL="${{ secrets.FIREBASE_CLIENT_EMAIL }}" \
+              FIREBASE_CLIENT_ID="${{ secrets.FIREBASE_CLIENT_ID }}" \
+              FIREBASE_AUTH_DOMAIN="${{ secrets.FIREBASE_AUTH_DOMAIN }}" \
+              FIREBASE_DATABASE_URL="${{ secrets.FIREBASE_DATABASE_URL }}" \
+              FIREBASE_STORAGE_BUCKET="${{ secrets.FIREBASE_STORAGE_BUCKET }}" \
+              FIREBASE_SERVICE_ACCOUNT_JSON="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}" \
+              SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+              GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+              GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+              SMTP_FROM_EMAIL="${{ secrets.SMTP_FROM_EMAIL }}" \
+              SMTP_HOST="${{ secrets.SMTP_HOST }}" \
+              SMTP_PASSWORD="${{ secrets.SMTP_PASSWORD }}" \
+              SMTP_PORT="${{ secrets.SMTP_PORT }}" \
+              SMTP_USE_TLS="${{ secrets.SMTP_USE_TLS }}" \
+              SMTP_USERNAME="${{ secrets.SMTP_USERNAME }}" \
+              SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+              ENABLE_ORYX_BUILD=true \
+              WEBSITES_PORT=8080
+          
+          echo "✅ Environment variables configured"
+
+      - name: 🔄 Restart Azure Web App
+        run: |
+          echo "🔄 Restarting Web App..."
+          az webapp restart \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+          echo "✅ Restart completed"
+
+      - name: 🧪 Verify Deployment
+        run: |
+          echo "🧪 Waiting for application to start (90 seconds)..."
+          sleep 90
+          
+          APP_URL="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" $APP_URL || echo "000")
+          
+          echo "📊 HTTP Status Code: $HTTP_CODE"
+          
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
+            echo "✅ Application is running successfully!"
+            echo "🌐 URL: $APP_URL"
+          else
+            echo "⚠️ Application returned status $HTTP_CODE"
+            echo "💡 Check Azure logs for more details"
+          fi
+
+      - name: 📝 Deployment Summary
+        if: always()
+        run: |
+          echo "### 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **App Name**: ${{ env.AZURE_WEBAPP_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Resource Group**: ${{ env.AZURE_RESOURCE_GROUP }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Python Version**: ${{ env.PYTHON_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Node Version**: ${{ env.NODE_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Configured Services" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ GROQ AI (Chatbot)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Pinecone (Vector Database)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Firebase (Database & Auth)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Google OAuth" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SMTP Email" >> $GITHUB_STEP_SUMMARY

@@ -3479,11 +3479,12 @@ def chatbot():
     AI Health Assistant Chatbot - Provides personalized health guidance
     """
     try:
-        if llm is None:
+        current_llm = get_llm()
+        if current_llm is None:
             return jsonify({
                 'success': False,
                 'error': 'AI Assistant not available. Please configure GROQ_API_KEY.'
-            }), 500
+            }), 503
         
         data = request.json
         user_message = data.get('message', '').strip()
