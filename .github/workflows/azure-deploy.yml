@@ -55,13 +55,35 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: ⚙️ Configure Azure Web App Settings (Pre-Deploy)
+        run: |
+          echo "⚙️ Configuring web app before deployment..."
+          
+          # Configure startup command
+          az webapp config set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --startup-file "gunicorn --bind=0.0.0.0:8000 --workers=2 --threads=4 --timeout=300 --access-logfile=- --error-logfile=- flask_app:app"
+          
+          # Configure general settings
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings \
+              WEBSITES_PORT=8000 \
+              SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+              ENABLE_ORYX_BUILD=true \
+              POST_BUILD_COMMAND="pip install --upgrade pip && pip install -r requirements.txt"
+          
+          echo "✅ Pre-deployment configuration complete"
+
       - name: 🚀 Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: .
 
-      - name: ⚙️ Configure Azure App Settings
+      - name: ⚙️ Configure Azure Environment Variables
         run: |
           echo "⚙️ Configuring environment variables..."
           az webapp config appsettings set \
@@ -88,9 +110,8 @@ jobs:
               SMTP_PORT="${{ secrets.SMTP_PORT }}" \
               SMTP_USE_TLS="${{ secrets.SMTP_USE_TLS }}" \
               SMTP_USERNAME="${{ secrets.SMTP_USERNAME }}" \
-              SCM_DO_BUILD_DURING_DEPLOYMENT=true \
-              ENABLE_ORYX_BUILD=true \
-              WEBSITES_PORT=8080
+              PYTHONUNBUFFERED=1 \
+              MPLCONFIGDIR=/tmp/matplotlib
           
           echo "✅ Environment variables configured"
 
