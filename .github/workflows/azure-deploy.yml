@@ -55,33 +55,54 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: ⚙️ Configure Azure Web App Settings (Pre-Deploy)
+      - name: 📦 Create Deployment Package
         run: |
-          echo "⚙️ Configuring web app before deployment..."
+          echo "📦 Creating clean deployment package..."
+          
+          # Remove unnecessary files
+          rm -rf .git .github node_modules frontend/node_modules frontend/dist __pycache__ **/__pycache__ .pytest_cache mlruns logs
+          rm -f .gitignore .gitattributes .dockerignore
+          
+          # Create a clean zip
+          zip -r deploy.zip . -x "*.git*" "*.github*" "*node_modules*" "*__pycache__*" "*.pytest_cache*"
+          
+          echo "✅ Deployment package created: $(du -h deploy.zip | cut -f1)"
+
+      - name: ⚙️ Configure Azure Web App Settings
+        run: |
+          echo "⚙️ Configuring web app settings..."
+          
+          # Stop the app first
+          az webapp stop --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
           
           # Configure startup command
           az webapp config set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --startup-file "gunicorn --bind=0.0.0.0:8000 --workers=2 --threads=4 --timeout=300 --access-logfile=- --error-logfile=- flask_app:app"
+            --startup-file "gunicorn --bind=0.0.0.0:8000 --workers=2 --threads=4 --timeout=300 flask_app:app"
           
-          # Configure general settings
+          # Configure app settings
           az webapp config appsettings set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --settings \
               WEBSITES_PORT=8000 \
               SCM_DO_BUILD_DURING_DEPLOYMENT=true \
-              ENABLE_ORYX_BUILD=true \
-              POST_BUILD_COMMAND="pip install --upgrade pip && pip install -r requirements.txt"
+              ENABLE_ORYX_BUILD=true
           
-          echo "✅ Pre-deployment configuration complete"
+          echo "✅ Configuration complete"
 
-      - name: 🚀 Deploy to Azure Web App
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: .
+      - name: 🚀 Deploy via ZIP
+        run: |
+          echo "🚀 Deploying to Azure..."
+          
+          az webapp deployment source config-zip \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --src deploy.zip \
+            --timeout 600
+          
+          echo "✅ Deployment complete"
 
       - name: ⚙️ Configure Azure Environment Variables
         run: |
@@ -115,13 +136,13 @@ jobs:
           
           echo "✅ Environment variables configured"
 
-      - name: 🔄 Restart Azure Web App
+      - name: 🔄 Start Azure Web App
         run: |
-          echo "🔄 Restarting Web App..."
-          az webapp restart \
+          echo "🔄 Starting Web App..."
+          az webapp start \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
-          echo "✅ Restart completed"
+          echo "✅ Web App started"
 
       - name: 🧪 Verify Deployment
         run: |
