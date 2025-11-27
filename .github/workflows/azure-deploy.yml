@@ -72,14 +72,11 @@ jobs:
         run: |
           echo "⚙️ Configuring web app settings..."
           
-          # Stop the app first
-          az webapp stop --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
-          
-          # Configure startup command
+          # Configure startup command (without stopping app)
           az webapp config set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --startup-file "gunicorn --bind=0.0.0.0:8000 --workers=2 --threads=4 --timeout=300 flask_app:app"
+            --startup-file "gunicorn --bind=0.0.0.0:8000 --workers=1 --threads=8 --timeout=120 --graceful-timeout=30 --keep-alive=5 --worker-class=gthread --worker-tmp-dir=/dev/shm flask_app:app"
           
           # Configure app settings
           az webapp config appsettings set \
@@ -144,13 +141,13 @@ jobs:
           
           echo "✅ Environment variables configured"
 
-      - name: 🔄 Start Azure Web App
+      - name: 🔄 Restart Azure Web App
         run: |
-          echo "🔄 Starting Web App..."
-          az webapp start \
+          echo "🔄 Restarting Web App..."
+          az webapp restart \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
-          echo "✅ Web App started"
+          echo "✅ Web App restarted"
 
       - name: 🧪 Verify Deployment
         run: |
