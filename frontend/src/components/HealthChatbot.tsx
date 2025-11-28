@@ -14,7 +14,7 @@ export default function HealthChatbot() {
     {
       id: '1',
       role: 'assistant',
-      content: "👋 Hi! I'm your **AI Health Assistant** powered by advanced RAG technology.\n\nI can help you with:\n\n🩺 Understanding diabetes & health metrics\n📊 Analyzing your prediction results  \n💡 Personalized health recommendations\n🔍 Searching medical knowledge base\n\nWhat would you like to know?",
+      content: "👋 Hi! I'm your **AI Health Assistant**.\n\nI can help you with:\n\n🩺 Understanding diabetes & health metrics\n📊 Analyzing your prediction results  \n💡 Personalized health recommendations\n❓ Answering your health questions\n\nWhat would you like to know?",
       timestamp: new Date(),
     },
   ]);
@@ -169,7 +169,7 @@ export default function HealthChatbot() {
                 <h3 className="font-bold text-base sm:text-lg truncate">AI Health Assistant</h3>
                 <p className="text-xs text-purple-100 flex items-center gap-1 truncate">
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse flex-shrink-0"></span>
-                  <span className="truncate">RAG Technology</span>
+                  <span className="truncate">Powered by AI</span>
                 </p>
               </div>
             </div>

@@ -99,7 +99,12 @@ def load_model():
 
 # ------------------- LAZY LOAD GROQ LLM -------------------
 load_dotenv()
-groq_api_key = os.getenv("GROQ_API_KEY")
+
+# Read API keys dynamically (don't cache at module level)
+def get_groq_api_key():
+    """Get GROQ API key from environment"""
+    return os.getenv("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
+
 google_client_id = os.getenv("GOOGLE_CLIENT_ID", "")
 google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
 
@@ -116,8 +121,10 @@ def get_llm():
     if _llm_initialized:
         return llm
     
+    groq_api_key = get_groq_api_key()
     if not groq_api_key:
         print("⚠️ GROQ_API_KEY not set - AI features disabled")
+        print(f"🔍 Environment check: GROQ_API_KEY={'SET' if groq_api_key else 'NOT SET'}")
         _llm_initialized = True
         return None
     
