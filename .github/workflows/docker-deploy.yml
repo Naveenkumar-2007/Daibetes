@@ -177,16 +177,11 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --settings SMTP_USERNAME="${{ secrets.SMTP_USERNAME }}"
           
-          # Set Firebase JSON using printf to avoid quote issues
-          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/firebase.json
-          az webapp config appsettings set \
-            --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --settings FIREBASE_SERVICE_ACCOUNT_JSON@/tmp/firebase.json
-          rm -f /tmp/firebase.json
-          rm /tmp/firebase.json
+          # NOTE: FIREBASE_SERVICE_ACCOUNT_JSON causes shell quoting errors in GitHub Actions
+          # Set manually after deployment via Azure Portal or: 
+          # az webapp config appsettings set --name diabetes-predictor-ai --resource-group diabetes-predictor-rg --settings FIREBASE_SERVICE_ACCOUNT_JSON='<json>'
           
-          echo "✅ All settings configured"
+          echo "✅ All settings configured (except Firebase JSON - set manually)"
 
       - name: 🚀 Restart Azure Web App
         run: |
