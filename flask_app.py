@@ -146,23 +146,6 @@ def get_llm():
         _llm_initialized = True
     
     return llm
-        _llm_initialized = True
-        return None
-    
-    try:
-        llm = ChatGroq(
-            model="llama-3.1-8b-instant",
-            groq_api_key=groq_api_key,
-            temperature=0.4,
-            timeout=30
-        )
-        print("✅ Groq LLM initialized successfully")
-        _llm_initialized = True
-        return llm
-    except Exception as e:
-        print(f"❌ Error initializing Groq LLM: {e}")
-        _llm_initialized = True
-        return None
 
 FEATURE_INDEX_MAP = {
     'Pregnancies': 0,

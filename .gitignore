@@ -1,28 +1,95 @@
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
 
-# Environment variables
+# Environment & Secrets
 .env
-.env.local
-.env.production
-.env.mlops.example
+.env.*
+!.env.example
 firebase-service-account.json
+firebase-adminsdk-*.json
 
-# Local database
-local_database.json
-
-# Logs
+# Logs & Temp Files
 logs/
 *.log
+*.log.txt
+*_report.txt
 mlruns/
+mlflow.db*
+app_logs/
+app_logs.zip
+azure-logs/
+azure-logs*.zip
 
 # Azure
 .azure/
+.azure-settings.json
+
+# Build & Distribution
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# IDEs
+.vscode/
+.idea/
+.spyderproject
+.spyproject
+*.swp
+*.swo
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/.env.local
+
+# Static Reports (Generated)
+static/reports/*/
+reports/*/
+
+# MLOps
+model_registry/
+logs/predictions/*.jsonl
+logs/drift_reports/*.json
+logs/performance_reports/*.json
+
+# Unused Files
+Dockerfile
+Procfile
+web.config
+entrypoint.sh
+*.ps1
+!.github/workflows/*.yml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary
+*.tmp
+*.bak
+*.swp
+*~
 
 # Distribution / packaging
 .Python
