@@ -72,20 +72,21 @@ jobs:
         run: |
           echo "⚙️ Configuring web app settings..."
           
-          # Configure startup command (without stopping app)
+          # Configure startup command - REMOVED --preload for faster startup
           az webapp config set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --startup-file "gunicorn --bind=0.0.0.0:8000 --workers=1 --threads=8 --timeout=60 --graceful-timeout=30 --preload --worker-class=gthread --worker-tmp-dir=/dev/shm flask_app:app"
+            --startup-file "gunicorn --bind=0.0.0.0:8000 --workers=1 --threads=8 --timeout=120 --graceful-timeout=30 --worker-class=gthread --worker-tmp-dir=/dev/shm flask_app:app"
           
-          # Configure app settings
+          # Configure app settings - DISABLE Azure build (use pre-built ZIP)
           az webapp config appsettings set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --settings \
               WEBSITES_PORT=8000 \
-              SCM_DO_BUILD_DURING_DEPLOYMENT=true \
-              ENABLE_ORYX_BUILD=true
+              SCM_DO_BUILD_DURING_DEPLOYMENT=false \
+              ENABLE_ORYX_BUILD=false \
+              WEBSITE_DISABLE_SCM_SEPARATION=true
           
           echo "✅ Configuration complete"
 
