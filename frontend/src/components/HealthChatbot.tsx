@@ -91,7 +91,15 @@ export default function HealthChatbot() {
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || 'Failed to get response');
+        // Show the error message from server
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: data.message || data.error || 'Sorry, I encountered an error. Please try again.',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+        return;
       }
 
       const assistantMessage: Message = {
@@ -107,7 +115,7 @@ export default function HealthChatbot() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: '⚠️ I apologize, but I am having trouble connecting right now. Please try again in a moment.',
+        content: '⚠️ Unable to connect to the AI assistant. Please check your internet connection and try again.',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -133,9 +141,9 @@ export default function HealthChatbot() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 bg-gradient-to-br from-blue-600 via-purple-600 to-blue-700 text-white p-4 rounded-full shadow-2xl hover:shadow-purple-500/50 hover:scale-110 transition-all duration-300"
+          className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 bg-gradient-to-br from-blue-600 via-purple-600 to-blue-700 text-white p-4 rounded-full shadow-2xl hover:shadow-purple-500/50 active:scale-95 sm:hover:scale-110 transition-all duration-300"
           aria-label="Open AI Health Assistant"
-          style={{ animation: 'pulse-slow 3s ease-in-out infinite' }}
+          style={{ minWidth: '60px', minHeight: '60px' }}
         >
           <MessageCircle className="w-7 h-7" />
           <span className="absolute -top-1 -right-1 bg-gradient-to-r from-green-400 to-green-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
@@ -147,28 +155,28 @@ export default function HealthChatbot() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-0 sm:bottom-6 right-0 sm:right-6 z-50 w-full sm:w-[420px] sm:max-w-[calc(100vw-3rem)] h-[100vh] sm:h-[650px] sm:max-h-[calc(100vh-6rem)] bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden sm:border-2 border-purple-200">
+        <div className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[100] w-full sm:w-[420px] sm:max-w-[calc(100vw-3rem)] h-full sm:h-[min(650px,calc(100vh-3rem))] bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden sm:border-2 border-purple-200">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 text-white p-5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
+          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 text-white px-4 py-4 sm:p-5 flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+              <div className="relative flex-shrink-0">
                 <div className="bg-white/20 backdrop-blur-sm p-2 rounded-full">
-                  <Bot className="w-6 h-6" />
+                  <Bot className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
                 <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></span>
               </div>
-              <div>
-                <h3 className="font-bold text-lg">AI Health Assistant</h3>
-                <p className="text-xs text-purple-100 flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                  Powered by RAG Technology
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-base sm:text-lg truncate">AI Health Assistant</h3>
+                <p className="text-xs text-purple-100 flex items-center gap-1 truncate">
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse flex-shrink-0"></span>
+                  <span className="truncate">RAG Technology</span>
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
               <button
                 onClick={clearChat}
-                className="hover:bg-white/20 p-2 rounded-full transition-colors"
+                className="hover:bg-white/20 active:bg-white/30 p-2 rounded-full transition-colors touch-target"
                 aria-label="Clear chat"
                 title="Clear conversation"
               >
@@ -176,7 +184,7 @@ export default function HealthChatbot() {
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="hover:bg-white/20 p-2 rounded-full transition-colors"
+                className="hover:bg-white/20 active:bg-white/30 p-2 rounded-full transition-colors touch-target"
                 aria-label="Close chat"
               >
                 <X className="w-5 h-5" />
@@ -185,7 +193,7 @@ export default function HealthChatbot() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gradient-to-b from-gray-50 to-white">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 sm:space-y-4 bg-gradient-to-b from-gray-50 to-white">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -260,7 +268,7 @@ export default function HealthChatbot() {
           </div>
 
           {/* Quick Suggestions */}
-          <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 flex gap-2 overflow-x-auto">
+          <div className="px-3 sm:px-4 py-2 bg-gray-50 border-t border-gray-200 flex gap-2 overflow-x-auto scrollbar-hide">
             {[
               "What's my diabetes risk?",
               "Explain my BMI",
@@ -269,7 +277,8 @@ export default function HealthChatbot() {
               <button
                 key={suggestion}
                 onClick={() => setInput(suggestion)}
-                className="px-3 py-1.5 text-xs bg-white border border-purple-200 rounded-full hover:bg-purple-50 hover:border-purple-400 transition-colors whitespace-nowrap"
+                disabled={isLoading}
+                className="px-3 py-2 text-xs bg-white border border-purple-200 rounded-full hover:bg-purple-50 active:bg-purple-100 hover:border-purple-400 transition-colors whitespace-nowrap flex-shrink-0 disabled:opacity-50 touch-target"
               >
                 {suggestion}
               </button>
@@ -277,7 +286,7 @@ export default function HealthChatbot() {
           </div>
 
           {/* Input */}
-          <div className="p-4 bg-white border-t-2 border-purple-100">
+          <div className="p-3 sm:p-4 bg-white border-t-2 border-purple-100 pb-safe">
             <div className="flex gap-2">
               <input
                 type="text"
@@ -285,14 +294,16 @@ export default function HealthChatbot() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask about your health..."
-                className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                 disabled={isLoading}
+                style={{ fontSize: '16px' }}
               />
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 rounded-full hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 rounded-full hover:from-blue-700 hover:to-purple-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl flex-shrink-0 touch-target"
                 aria-label="Send message"
+                style={{ minWidth: '48px', minHeight: '48px' }}
               >
                 <Send className="w-5 h-5" />
               </button>

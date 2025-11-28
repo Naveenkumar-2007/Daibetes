@@ -56,43 +56,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     console.log('Dashboard mounted, user:', user)
-    
-    // Set a timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      if (loading) {
-        console.warn('Dashboard loading timeout - forcing completion')
-        setLoading(false)
-        // Don't set error if we have any data
-        if (allPredictions.length === 0) {
-          setError('Dashboard took too long to load. Please refresh the page.')
-        }
-      }
-    }, 15000) // 15 second timeout
-    
     fetchDashboardData()
-    
-    return () => clearTimeout(timeoutId)
   }, [])
 
   const fetchDashboardData = async () => {
     try {
       setError(null)
+      setLoading(true)
       console.log('Fetching dashboard data...')
       
-      // Try to fetch data with individual try-catch for each API call
-      try {
-        const latestResponse = await dashboardAPI.getLatestPrediction()
-        console.log('Latest prediction response:', latestResponse.data)
-        
-        if (latestResponse.data.success && latestResponse.data.prediction) {
-          setLatestPrediction(latestResponse.data.prediction)
-        }
-      } catch (err) {
-        console.error('Error fetching latest prediction (non-critical):', err)
-        // Continue even if latest prediction fails
-      }
-
-      // Fetch all predictions for comprehensive overview
+      // Fetch all predictions first (most important data)
       try {
         const allResponse = await dashboardAPI.getAllPredictions()
         console.log('All predictions response:', allResponse.data)
@@ -126,23 +99,24 @@ export default function Dashboard() {
               dpf: p.dpf
             }))
             setGlucoseData(glucoseTrend)
+            
+            // Set latest prediction from the list
+            if (predictions.length > 0) {
+              setLatestPrediction(predictions[0])
+            }
           }
         }
       } catch (err: any) {
-        console.error('Error fetching all predictions:', err)
-        // Set a user-friendly error message
-        if (err.code === 'ECONNABORTED' || !err.response) {
-          throw new Error('Unable to connect to server. Please check your internet connection.')
-        } else if (err.response?.status === 401) {
-          throw new Error('Session expired. Please login again.')
-        } else {
-          throw new Error(err.response?.data?.error || 'Failed to load predictions')
+        console.error('Error fetching predictions:', err)
+        // Only show error if it's critical (not just empty data)
+        if (err.response?.status !== 404) {
+          setError('Unable to load predictions. Please refresh the page.')
         }
       }
     } catch (error: any) {
-      console.error('Error fetching dashboard data:', error)
-      console.error('Error response:', error.response?.data)
-      setError(error.message || error.response?.data?.error || 'Network Error')
+      console.error('Dashboard error:', error)
+      // Don't show error to user, just log it
+      console.error('Error details:', error.message)
     } finally {
       setLoading(false)
     }

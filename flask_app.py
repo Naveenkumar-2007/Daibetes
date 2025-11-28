@@ -3498,12 +3498,15 @@ def chatbot():
     AI Health Assistant Chatbot - Provides personalized health guidance
     """
     try:
+        # Check if LLM is available
         current_llm = get_llm()
         if current_llm is None:
+            print("⚠️ Chatbot request failed: LLM not available (GROQ_API_KEY not set)")
             return jsonify({
                 'success': False,
-                'error': 'AI Assistant not available. Please configure GROQ_API_KEY.'
-            }), 503
+                'error': 'AI Assistant is currently unavailable. Please contact the administrator to configure the GROQ API key.',
+                'message': 'I apologize, but the AI assistant is not configured yet. Please ask your administrator to set up the GROQ_API_KEY environment variable.'
+            }), 200  # Return 200 so frontend shows the message
         
         data = request.json
         user_message = data.get('message', '').strip()
