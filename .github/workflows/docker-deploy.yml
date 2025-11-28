@@ -177,12 +177,13 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --settings SMTP_USERNAME="${{ secrets.SMTP_USERNAME }}"
           
-          # Set Firebase JSON - save to file first to avoid shell parsing
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/firebase.json
+          # Set Firebase JSON using printf to avoid quote issues
+          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/firebase.json
           az webapp config appsettings set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --settings "FIREBASE_SERVICE_ACCOUNT_JSON@/tmp/firebase.json"
+            --settings FIREBASE_SERVICE_ACCOUNT_JSON@/tmp/firebase.json
+          rm -f /tmp/firebase.json
           rm /tmp/firebase.json
           
           echo "✅ All settings configured"
