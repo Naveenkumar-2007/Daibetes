@@ -84,14 +84,8 @@ jobs:
               SMTP_USE_TLS="${{ secrets.SMTP_USE_TLS }}" \
               SMTP_USERNAME="${{ secrets.SMTP_USERNAME }}" \
               PYTHONUNBUFFERED="1" \
-              MPLCONFIGDIR="/tmp/matplotlib"
-          
-          # Set Firebase JSON separately
-          FIREBASE_JSON='${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}'
-          az webapp config appsettings set \
-            --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --settings "FIREBASE_SERVICE_ACCOUNT_JSON=${FIREBASE_JSON}"
+              MPLCONFIGDIR="/tmp/matplotlib" \
+              FIREBASE_SERVICE_ACCOUNT_JSON='${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}'
 
       - name: 🚀 Restart Azure Web App
         run: |
