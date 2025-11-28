@@ -56,36 +56,136 @@ jobs:
             --docker-registry-server-user ${{ github.actor }} \
             --docker-registry-server-password ${{ secrets.GITHUB_TOKEN }}
           
-          # Configure app settings
+          # Configure app settings - set individually to avoid shell quoting issues
           az webapp config appsettings set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --settings \
-              WEBSITES_PORT=8000 \
-              WEBSITES_CONTAINER_START_TIME_LIMIT=1800 \
-              DOCKER_ENABLE_CI=true \
-              GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
-              PINECONE_API_KEY="${{ secrets.PINECONE_API_KEY }}" \
-              FIREBASE_API_KEY="${{ secrets.FIREBASE_API_KEY }}" \
-              FIREBASE_PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}" \
-              FIREBASE_PRIVATE_KEY_ID="${{ secrets.FIREBASE_PRIVATE_KEY_ID }}" \
-              FIREBASE_CLIENT_EMAIL="${{ secrets.FIREBASE_CLIENT_EMAIL }}" \
-              FIREBASE_CLIENT_ID="${{ secrets.FIREBASE_CLIENT_ID }}" \
-              FIREBASE_AUTH_DOMAIN="${{ secrets.FIREBASE_AUTH_DOMAIN }}" \
-              FIREBASE_DATABASE_URL="${{ secrets.FIREBASE_DATABASE_URL }}" \
-              FIREBASE_STORAGE_BUCKET="${{ secrets.FIREBASE_STORAGE_BUCKET }}" \
-              SECRET_KEY="${{ secrets.SECRET_KEY }}" \
-              GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
-              GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
-              SMTP_FROM_EMAIL="${{ secrets.SMTP_FROM_EMAIL }}" \
-              SMTP_HOST="${{ secrets.SMTP_HOST }}" \
-              SMTP_PASSWORD="${{ secrets.SMTP_PASSWORD }}" \
-              SMTP_PORT="${{ secrets.SMTP_PORT }}" \
-              SMTP_USE_TLS="${{ secrets.SMTP_USE_TLS }}" \
-              SMTP_USERNAME="${{ secrets.SMTP_USERNAME }}" \
-              PYTHONUNBUFFERED="1" \
-              MPLCONFIGDIR="/tmp/matplotlib" \
-              FIREBASE_SERVICE_ACCOUNT_JSON='${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}'
+            --settings WEBSITES_PORT=8000
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings WEBSITES_CONTAINER_START_TIME_LIMIT=1800
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings DOCKER_ENABLE_CI=true
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings PYTHONUNBUFFERED=1
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings MPLCONFIGDIR=/tmp/matplotlib
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings PINECONE_API_KEY="${{ secrets.PINECONE_API_KEY }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings SECRET_KEY="${{ secrets.SECRET_KEY }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings FIREBASE_API_KEY="${{ secrets.FIREBASE_API_KEY }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings FIREBASE_PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings FIREBASE_PRIVATE_KEY_ID="${{ secrets.FIREBASE_PRIVATE_KEY_ID }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings FIREBASE_CLIENT_EMAIL="${{ secrets.FIREBASE_CLIENT_EMAIL }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings FIREBASE_CLIENT_ID="${{ secrets.FIREBASE_CLIENT_ID }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings FIREBASE_AUTH_DOMAIN="${{ secrets.FIREBASE_AUTH_DOMAIN }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings FIREBASE_DATABASE_URL="${{ secrets.FIREBASE_DATABASE_URL }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings FIREBASE_STORAGE_BUCKET="${{ secrets.FIREBASE_STORAGE_BUCKET }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings SMTP_FROM_EMAIL="${{ secrets.SMTP_FROM_EMAIL }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings SMTP_HOST="${{ secrets.SMTP_HOST }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings SMTP_PASSWORD="${{ secrets.SMTP_PASSWORD }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings SMTP_PORT="${{ secrets.SMTP_PORT }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings SMTP_USE_TLS="${{ secrets.SMTP_USE_TLS }}"
+          
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings SMTP_USERNAME="${{ secrets.SMTP_USERNAME }}"
+          
+          # Set Firebase JSON - save to file first to avoid shell parsing
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/firebase.json
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings "FIREBASE_SERVICE_ACCOUNT_JSON@/tmp/firebase.json"
+          rm /tmp/firebase.json
+          
+          echo "✅ All settings configured"
 
       - name: 🚀 Restart Azure Web App
         run: |
