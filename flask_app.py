@@ -35,18 +35,13 @@ def get_firebase_imports():
             get_prediction_by_id, get_predictions_by_ids, update_prediction_record,
             append_prediction_comparison, db, firebase_initialized, use_rest_api)
 
-def get_auth_imports():
-    """Lazy import authentication functions"""
-    from auth import (
-        create_user, authenticate_user, authenticate_google_user,
-        initiate_password_reset, reset_password_with_token, validate_password_reset_token,
-        login_required, admin_required, get_user_predictions, get_user_statistics,
-        change_password, update_user_profile
-    )
-    return (create_user, authenticate_user, authenticate_google_user,
-            initiate_password_reset, reset_password_with_token, validate_password_reset_token,
-            login_required, admin_required, get_user_predictions, get_user_statistics,
-            change_password, update_user_profile)
+# Import auth decorators immediately (needed at module level for route decorators)
+from auth import (
+    create_user, authenticate_user, authenticate_google_user,
+    initiate_password_reset, reset_password_with_token, validate_password_reset_token,
+    login_required, admin_required, get_user_predictions, get_user_statistics,
+    change_password, update_user_profile
+)
 
 # Minimal imports for fast startup
 from uuid import uuid4
