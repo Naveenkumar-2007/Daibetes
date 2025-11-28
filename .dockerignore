@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.pytest_cache
+.coverage
+
+# Virtual environments
+venv
+env
+ENV
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ML artifacts (we'll copy what's needed)
+mlruns/
+
+# Documentation
+*.md
+!README.md
+
+# Deployment files
+.dockerignore
+Dockerfile
+docker-compose.yml
+startup.sh
+startup_azure.sh
+*.ps1
+web.config
+Procfile

@@ -1,0 +1,136 @@
+name: Docker Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: diabetes-predictor-ai
+  AZURE_RESOURCE_GROUP: diabetes-predictor-rg
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏗️ Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: 🔐 Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ⚙️ Configure Azure Web App for Docker
+        run: |
+          echo "⚙️ Configuring Azure for Docker deployment..."
+          
+          # Set container settings
+          az webapp config container set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --docker-custom-image-name ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            --docker-registry-server-url https://${{ env.REGISTRY }} \
+            --docker-registry-server-user ${{ github.actor }} \
+            --docker-registry-server-password ${{ secrets.GITHUB_TOKEN }}
+          
+          # Configure app settings
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings \
+              WEBSITES_PORT=8000 \
+              WEBSITES_CONTAINER_START_TIME_LIMIT=1800 \
+              DOCKER_ENABLE_CI=true \
+              GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
+              PINECONE_API_KEY="${{ secrets.PINECONE_API_KEY }}" \
+              FIREBASE_API_KEY="${{ secrets.FIREBASE_API_KEY }}" \
+              FIREBASE_PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}" \
+              FIREBASE_PRIVATE_KEY_ID="${{ secrets.FIREBASE_PRIVATE_KEY_ID }}" \
+              FIREBASE_CLIENT_EMAIL="${{ secrets.FIREBASE_CLIENT_EMAIL }}" \
+              FIREBASE_CLIENT_ID="${{ secrets.FIREBASE_CLIENT_ID }}" \
+              FIREBASE_AUTH_DOMAIN="${{ secrets.FIREBASE_AUTH_DOMAIN }}" \
+              FIREBASE_DATABASE_URL="${{ secrets.FIREBASE_DATABASE_URL }}" \
+              FIREBASE_STORAGE_BUCKET="${{ secrets.FIREBASE_STORAGE_BUCKET }}" \
+              SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+              GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+              GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+              SMTP_FROM_EMAIL="${{ secrets.SMTP_FROM_EMAIL }}" \
+              SMTP_HOST="${{ secrets.SMTP_HOST }}" \
+              SMTP_PASSWORD="${{ secrets.SMTP_PASSWORD }}" \
+              SMTP_PORT="${{ secrets.SMTP_PORT }}" \
+              SMTP_USE_TLS="${{ secrets.SMTP_USE_TLS }}" \
+              SMTP_USERNAME="${{ secrets.SMTP_USERNAME }}" \
+              PYTHONUNBUFFERED="1" \
+              MPLCONFIGDIR="/tmp/matplotlib"
+          
+          # Set Firebase JSON separately
+          FIREBASE_JSON='${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}'
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings "FIREBASE_SERVICE_ACCOUNT_JSON=${FIREBASE_JSON}"
+
+      - name: 🚀 Restart Azure Web App
+        run: |
+          echo "🔄 Restarting Azure Web App..."
+          az webapp restart \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+          echo "✅ Restart initiated"
+
+      - name: 🧪 Verify Deployment
+        run: |
+          echo "🧪 Waiting for app to start..."
+          sleep 60
+          
+          APP_URL="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          
+          # Check health endpoint
+          for i in {1..10}; do
+            echo "Attempt $i: Checking $APP_URL/health"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/health" || echo "000")
+            
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ App is healthy!"
+              exit 0
+            fi
+            
+            echo "Status: $STATUS - Waiting 30 seconds..."
+            sleep 30
+          done
+          
+          echo "⚠️ App may still be starting. Check manually at $APP_URL"
+
+      - name: 📝 Deployment Summary
+        if: always()
+        run: |
+          echo "### 🐳 Docker Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "- **App**: ${{ env.AZURE_WEBAPP_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Docker deployment complete!" >> $GITHUB_STEP_SUMMARY
