@@ -506,32 +506,24 @@ def generate_comparison_pdf(current_prediction, comparison_entry):
 
 # ------------------- AUTHENTICATION ROUTES -------------------
 
-@app.route('/health')
-def health_check():
-    """Health check endpoint for Azure App Service"""
-    try:
-        return jsonify({
-            'status': 'healthy',
-            'timestamp': datetime.now().isoformat(),
-            'firebase': firebase_initialized,
-            'model_loaded': model is not None,
-            'scaler_loaded': scaler is not None
-        }), 200
-    except Exception as e:
-        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
-
 # ===============================================================================
 # ROUTES - Fast Health Check First
 # ===============================================================================
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Ultra-fast health check - no heavy imports"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat(),
-        'service': 'diabetes-predictor-ai'
-    }), 200
+    """Ultra-fast health check endpoint"""
+    try:
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'service': 'diabetes-predictor-ai',
+            'firebase': firebase_initialized,
+            'model_loaded': model is not None,
+            'scaler_loaded': scaler is not None
+        }), 200
+    except Exception as e:
+        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
 
 @app.route('/api/health', methods=['GET'])
 def api_health():
@@ -3499,18 +3491,6 @@ def statistics():
             'success': False,
             'error': str(e)
         }), 500
-
-
-@app.route('/health')
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'model_loaded': model is not None,
-        'llm_available': llm is not None,
-        'database_connected': db is not None and hasattr(db, 'collection'),
-        'firebase_mode': 'REST_API' if use_rest_api else 'Admin_SDK' if firebase_initialized else 'Local_Storage'
-    })
 
 
 # ============================================
