@@ -24,23 +24,19 @@ def get_matplotlib():
     import matplotlib.pyplot as plt
     return plt
 
-def get_firebase_imports():
-    """Lazy import Firebase functions"""
-    from firebase_config import (
-        save_patient_data, get_patient_history, get_statistics,
-        get_prediction_by_id, get_predictions_by_ids, update_prediction_record,
-        append_prediction_comparison, db, firebase_initialized, use_rest_api
-    )
-    return (save_patient_data, get_patient_history, get_statistics, 
-            get_prediction_by_id, get_predictions_by_ids, update_prediction_record,
-            append_prediction_comparison, db, firebase_initialized, use_rest_api)
-
 # Import auth decorators immediately (needed at module level for route decorators)
 from auth import (
     create_user, authenticate_user, authenticate_google_user,
     initiate_password_reset, reset_password_with_token, validate_password_reset_token,
     login_required, admin_required, get_user_predictions, get_user_statistics,
     change_password, update_user_profile
+)
+
+# Import Firebase essentials (db, firebase_initialized used in multiple routes)
+from firebase_config import (
+    save_patient_data, get_patient_history, get_statistics,
+    get_prediction_by_id, get_predictions_by_ids, update_prediction_record,
+    append_prediction_comparison, db, firebase_initialized, use_rest_api
 )
 
 # Minimal imports for fast startup
