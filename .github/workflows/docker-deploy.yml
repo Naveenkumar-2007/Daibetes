@@ -9,7 +9,7 @@ env:
   AZURE_WEBAPP_NAME: diabetes-predictor-ai
   AZURE_RESOURCE_GROUP: diabetes-predictor-rg
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: naveenkumar-2007/daibetes
 
 jobs:
   build-and-deploy:
