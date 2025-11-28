@@ -12,20 +12,30 @@
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
   }
   
   html {
     -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl active:scale-95 text-sm sm:text-base;
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 sm:px-6 py-3 sm:py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl active:scale-95 text-base sm:text-base;
+    min-height: 44px;
+    touch-action: manipulation;
   }
   
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg border border-gray-200 transition-all duration-200 hover:border-blue-300 active:scale-95 text-sm sm:text-base;
+    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium px-5 sm:px-6 py-3 sm:py-3 rounded-lg border border-gray-200 transition-all duration-200 hover:border-blue-300 active:scale-95 text-base sm:text-base;
+    min-height: 44px;
+    touch-action: manipulation;
   }
   
   .card {
@@ -33,7 +43,10 @@
   }
   
   .input-field {
-    @apply w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm sm:text-base;
+    @apply w-full px-4 sm:px-4 py-3 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all;
+    font-size: 16px;
+    min-height: 44px;
+    touch-action: manipulation;
   }
   
   /* Mobile-specific utilities */
@@ -42,7 +55,9 @@
   }
   
   .mobile-nav {
-    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-50 lg:hidden;
+    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-3 z-50 lg:hidden;
+    min-height: 64px;
+    padding-bottom: env(safe-area-inset-bottom, 12px);
   }
   
   .mobile-sidebar {
@@ -64,5 +79,20 @@
   button, a {
     -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
     -webkit-touch-callout: none;
+  }
+  
+  /* Ensure proper padding for mobile with safe areas */
+  body {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  
+  /* Prevent double-tap zoom */
+  * {
+    touch-action: manipulation;
+  }
+  
+  /* Better text rendering on mobile */
+  h1, h2, h3, h4, h5, h6 {
+    text-rendering: optimizeLegibility;
   }
 }

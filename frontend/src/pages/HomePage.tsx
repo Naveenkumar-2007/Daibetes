@@ -22,11 +22,11 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
-              <Link to="/login" className="hidden sm:inline-block text-sm lg:text-base text-gray-700 hover:text-blue-600 transition-colors">Sign in</Link>
-              <Link to="/register" className="btn-primary text-xs sm:text-sm px-3 sm:px-6">Get Started</Link>
+              <Link to="/login" className="hidden sm:inline-block text-base lg:text-base text-gray-700 hover:text-blue-600 transition-colors font-medium">Sign in</Link>
+              <Link to="/register" className="btn-primary">Get Started</Link>
               <button 
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="md:hidden p-2.5 rounded-lg hover:bg-gray-100 transition-colors touch-target"
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
@@ -44,12 +44,12 @@ export default function HomePage() {
               transition={{ duration: 0.3 }}
               className="md:hidden border-t border-gray-200 bg-white overflow-hidden"
             >
-              <div className="px-4 py-4 space-y-3">
-                <a href="#home" className="block py-2 text-gray-700 hover:text-blue-600 transition-colors" onClick={() => setMobileMenuOpen(false)}>Home</a>
-                <a href="#about" className="block py-2 text-gray-700 hover:text-blue-600 transition-colors" onClick={() => setMobileMenuOpen(false)}>About</a>
-                <a href="#services" className="block py-2 text-gray-700 hover:text-blue-600 transition-colors" onClick={() => setMobileMenuOpen(false)}>Services</a>
-                <a href="#contact" className="block py-2 text-gray-700 hover:text-blue-600 transition-colors" onClick={() => setMobileMenuOpen(false)}>Contact</a>
-                <Link to="/login" className="block py-2 text-gray-700 hover:text-blue-600 transition-colors" onClick={() => setMobileMenuOpen(false)}>Sign in</Link>
+              <div className="px-4 py-4 space-y-2">
+                <a href="#home" className="block py-3 text-base text-gray-700 hover:text-blue-600 transition-colors font-medium" onClick={() => setMobileMenuOpen(false)}>Home</a>
+                <a href="#about" className="block py-3 text-base text-gray-700 hover:text-blue-600 transition-colors font-medium" onClick={() => setMobileMenuOpen(false)}>About</a>
+                <a href="#services" className="block py-3 text-base text-gray-700 hover:text-blue-600 transition-colors font-medium" onClick={() => setMobileMenuOpen(false)}>Services</a>
+                <a href="#contact" className="block py-3 text-base text-gray-700 hover:text-blue-600 transition-colors font-medium" onClick={() => setMobileMenuOpen(false)}>Contact</a>
+                <Link to="/login" className="block py-3 text-base text-gray-700 hover:text-blue-600 transition-colors font-medium" onClick={() => setMobileMenuOpen(false)}>Sign in</Link>
               </div>
             </motion.div>
           )}
