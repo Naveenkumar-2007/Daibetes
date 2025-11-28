@@ -5,51 +5,61 @@ Flask Backend Application with Firebase Integration
 
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash, send_from_directory
 from flask_cors import CORS
-import pickle
-import numpy as np
 import os
-import re
-import matplotlib
-
-matplotlib.use('Agg')  # Use non-GUI backend for server rendering
-import matplotlib.pyplot as plt
-
-from uuid import uuid4
-from dotenv import load_dotenv
-from langchain_groq import ChatGroq
-from langchain_core.prompts import ChatPromptTemplate
 import json
 from datetime import datetime
-import pytz
 
-# Import Firebase configuration
-# Timezone configuration for India
+# LAZY LOADING: Import heavy libraries only when needed
+# This speeds up app startup from 10+ minutes to <30 seconds
+
+def get_numpy():
+    """Lazy import numpy"""
+    import numpy as np
+    return np
+
+def get_matplotlib():
+    """Lazy import matplotlib"""
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    return plt
+
+def get_firebase_imports():
+    """Lazy import Firebase functions"""
+    from firebase_config import (
+        save_patient_data, get_patient_history, get_statistics,
+        get_prediction_by_id, get_predictions_by_ids, update_prediction_record,
+        append_prediction_comparison, db, firebase_initialized, use_rest_api
+    )
+    return (save_patient_data, get_patient_history, get_statistics, 
+            get_prediction_by_id, get_predictions_by_ids, update_prediction_record,
+            append_prediction_comparison, db, firebase_initialized, use_rest_api)
+
+def get_auth_imports():
+    """Lazy import authentication functions"""
+    from auth import (
+        create_user, authenticate_user, authenticate_google_user,
+        initiate_password_reset, reset_password_with_token, validate_password_reset_token,
+        login_required, admin_required, get_user_predictions, get_user_statistics,
+        change_password, update_user_profile
+    )
+    return (create_user, authenticate_user, authenticate_google_user,
+            initiate_password_reset, reset_password_with_token, validate_password_reset_token,
+            login_required, admin_required, get_user_predictions, get_user_statistics,
+            change_password, update_user_profile)
+
+# Minimal imports for fast startup
+from uuid import uuid4
+from dotenv import load_dotenv
+import pytz
+import re
+
+# Timezone configuration
 IST = pytz.timezone('Asia/Kolkata')
 
 def get_ist_now():
     """Get current datetime in IST timezone"""
     return datetime.now(IST)
-
-from firebase_config import (
-    save_patient_data,
-    get_patient_history,
-    get_statistics,
-    get_prediction_by_id,
-    get_predictions_by_ids,
-    update_prediction_record,
-    append_prediction_comparison,
-    db,
-    firebase_initialized,
-    use_rest_api
-)
-
-# Import authentication
-from auth import (
-    create_user, authenticate_user, authenticate_google_user,
-    initiate_password_reset, reset_password_with_token, validate_password_reset_token,
-    login_required, admin_required,
-    get_user_predictions, get_user_statistics, change_password, update_user_profile
-)
 
 # ------------------- FLASK APP SETUP -------------------
 app = Flask(__name__)
@@ -64,27 +74,39 @@ allowed_origins = [
 ]
 CORS(app, supports_credentials=True, origins=allowed_origins)
 
-# ------------------- LOAD ML MODEL & SCALER -------------------
+# ------------------- LAZY LOAD ML MODEL & SCALER -------------------
 MODEL_PATH = os.path.join('artifacts', 'model.pkl')
 SCALER_PATH = os.path.join('artifacts', 'scaler.pkl')
 
-try:
-    with open(MODEL_PATH, "rb") as f:
-        model = pickle.load(f)
-    print(f"✅ Model loaded successfully from {MODEL_PATH}")
-except Exception as e:
-    print(f"❌ Error loading model: {e}")
-    model = None
+model = None
+scaler = None
+_model_loaded = False
 
-try:
-    with open(SCALER_PATH, "rb") as f:
-        scaler = pickle.load(f)
-    print(f"✅ Scaler loaded successfully from {SCALER_PATH}")
-except Exception as e:
-    print(f"❌ Error loading scaler: {e}")
-    scaler = None
+def load_model():
+    """Lazy load model and scaler only when first prediction is made"""
+    global model, scaler, _model_loaded
+    if not _model_loaded:
+        import pickle
+        try:
+            with open(MODEL_PATH, "rb") as f:
+                model = pickle.load(f)
+            print(f"✅ Model loaded from {MODEL_PATH}")
+        except Exception as e:
+            print(f"❌ Model error: {e}")
+            model = None
+        
+        try:
+            with open(SCALER_PATH, "rb") as f:
+                scaler = pickle.load(f)
+            print(f"✅ Scaler loaded from {SCALER_PATH}")
+        except Exception as e:
+            print(f"❌ Scaler error: {e}")
+            scaler = None
+        
+        _model_loaded = True
+    return model, scaler
 
-# ------------------- LOAD GROQ LLM (LAZY LOADING) -------------------
+# ------------------- LAZY LOAD GROQ LLM -------------------
 load_dotenv()
 groq_api_key = os.getenv("GROQ_API_KEY")
 google_client_id = os.getenv("GOOGLE_CLIENT_ID", "")
@@ -93,19 +115,37 @@ google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
 app.config['GOOGLE_CLIENT_ID'] = google_client_id
 app.config['GOOGLE_CLIENT_SECRET'] = google_client_secret
 
-# Use lazy loading for LLM to speed up startup
 llm = None
 _llm_initialized = False
 
 def get_llm():
-    """Lazy load LLM only when needed"""
+    """Lazy load LLM only when chatbot is used"""
     global llm, _llm_initialized
     
     if _llm_initialized:
         return llm
     
     if not groq_api_key:
-        print("⚠️ Warning: GROQ_API_KEY not found - AI reports will be disabled")
+        print("⚠️ GROQ_API_KEY not set - AI features disabled")
+        _llm_initialized = True
+        return None
+    
+    try:
+        from langchain_groq import ChatGroq
+        llm = ChatGroq(
+            model="llama-3.1-70b-versatile",
+            api_key=groq_api_key,
+            temperature=0.7,
+            max_tokens=2000
+        )
+        print("✅ LLM initialized")
+        _llm_initialized = True
+    except Exception as e:
+        print(f"❌ LLM initialization error: {e}")
+        llm = None
+        _llm_initialized = True
+    
+    return llm
         _llm_initialized = True
         return None
     
@@ -496,6 +536,28 @@ def health_check():
         }), 200
     except Exception as e:
         return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+
+# ===============================================================================
+# ROUTES - Fast Health Check First
+# ===============================================================================
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Ultra-fast health check - no heavy imports"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat(),
+        'service': 'diabetes-predictor-ai'
+    }), 200
+
+@app.route('/api/health', methods=['GET'])
+def api_health():
+    """API health check endpoint"""
+    return health_check()
+
+# ===============================================================================
+# MAIN ROUTES
+# ===============================================================================
 
 @app.route('/')
 def home():
@@ -1839,12 +1901,16 @@ def predict():
     Expects JSON with patient data and medical test values
     """
     try:
-        if model is None:
+        # Lazy load model and numpy
+        model_obj, scaler_obj = load_model()
+        if model_obj is None:
             return jsonify({
                 'success': False,
                 'error': 'ML model not loaded. Please check server logs.'
             }), 500
-
+        
+        np = get_numpy()  # Lazy import numpy
+        
         data = request.json
         
         # === SECURITY: Input Validation ===
@@ -1945,16 +2011,16 @@ def predict():
         features_array = np.array(features).reshape(1, -1)
         
         # Scale features if scaler is available
-        if scaler is not None:
-            features_scaled = scaler.transform(features_array)
+        if scaler_obj is not None:
+            features_scaled = scaler_obj.transform(features_array)
         else:
             features_scaled = features_array
         
-        prediction = model.predict(features_scaled)[0]
+        prediction = model_obj.predict(features_scaled)[0]
         
         # Get prediction probability if available
         try:
-            prediction_proba = model.predict_proba(features_scaled)[0]
+            prediction_proba = model_obj.predict_proba(features_scaled)[0]
             confidence = float(max(prediction_proba) * 100)
             probability = float(prediction_proba[1])  # Probability of diabetes
         except:

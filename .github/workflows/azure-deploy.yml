@@ -76,7 +76,7 @@ jobs:
           az webapp config set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --startup-file "gunicorn --bind=0.0.0.0:8000 --workers=1 --threads=8 --timeout=120 --graceful-timeout=30 --keep-alive=5 --worker-class=gthread --worker-tmp-dir=/dev/shm flask_app:app"
+            --startup-file "gunicorn --bind=0.0.0.0:8000 --workers=1 --threads=8 --timeout=60 --graceful-timeout=30 --preload --worker-class=gthread --worker-tmp-dir=/dev/shm flask_app:app"
           
           # Configure app settings
           az webapp config appsettings set \
@@ -97,7 +97,7 @@ jobs:
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --src deploy.zip \
-            --timeout 600
+            --timeout 300
           
           echo "✅ Deployment complete"
 
