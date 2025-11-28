@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { Activity, User, Save, ArrowLeft, Download, BarChart3 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { predictionAPI, reportAPI } from '../lib/api'
+import MobileNav from '../components/MobileNav'
 
 export default function PredictPage() {
   const navigate = useNavigate()
@@ -77,7 +78,7 @@ export default function PredictPage() {
 
   if (result) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50" pb-24 lg:pb-8>
         <nav className="bg-white/90 backdrop-blur-md border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
@@ -218,7 +219,7 @@ export default function PredictPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50" pb-24 lg:pb-8>
       {/* Navigation */}
       <nav className="bg-white/90 backdrop-blur-md border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -487,6 +488,9 @@ export default function PredictPage() {
           </form>
         </motion.div>
       </div>
+    
+      {/* Mobile Navigation */}
+      <MobileNav />
     </div>
   )
 }

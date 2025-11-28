@@ -3751,6 +3751,33 @@ def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def load_chatbot_knowledge_base():
+    """Load chatbot documents from Firebase into memory"""
+    global chatbot_knowledge_base
+    try:
+        import firebase_config
+        firebase_config.initialize_firebase()
+        
+        docs_ref = firebase_config.db_ref.child('chatbot_documents')
+        documents = docs_ref.get() or {}
+        
+        chatbot_knowledge_base = []
+        if documents:
+            for doc_id, doc_data in documents.items():
+                chatbot_knowledge_base.append({
+                    'id': doc_id,
+                    'filename': doc_data.get('filename', 'Unknown'),
+                    'type': doc_data.get('type', 'Unknown'),
+                    'content': doc_data.get('content', ''),
+                    'url': doc_data.get('url', '')
+                })
+        
+        print(f"✅ Loaded {len(chatbot_knowledge_base)} documents into chatbot knowledge base")
+        return True
+    except Exception as e:
+        print(f"⚠️ Error loading chatbot knowledge base: {e}")
+        return False
+
 @app.route('/api/admin/chatbot/documents', methods=['GET'])
 @login_required
 @admin_required
@@ -4316,6 +4343,11 @@ if __name__ == '__main__':
     print(f"✅ Flask App: Ready")
     print(f"✅ ML Model: {'Loaded' if model else '❌ Not Loaded'}")
     print(f"✅ Groq AI: {'Connected' if llm else '❌ Not Connected'}")
+    
+    # Load chatbot knowledge base at startup
+    print("📚 Loading chatbot knowledge base...")
+    load_chatbot_knowledge_base()
+    
     print("="*70 + "\n")
     
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)

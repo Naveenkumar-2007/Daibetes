@@ -4,6 +4,7 @@ import { User, Activity, FileText, Download, BarChart3, ArrowLeft, TrendingUp } 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { motion } from 'framer-motion'
 import { predictionAPI, reportAPI } from '../lib/api'
+import MobileNav from '../components/MobileNav'
 
 // const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
 
@@ -75,7 +76,7 @@ export default function PredictionDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center" pb-24 lg:pb-8>
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
@@ -83,13 +84,13 @@ export default function PredictionDetail() {
 
   if (!prediction) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center" pb-24 lg:pb-8>
         <div>Prediction not found</div>
       </div>
     )
   }
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50" pb-24 lg:pb-8>
       {/* Top Navigation */}
       <nav className="bg-white/90 backdrop-blur-md border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -437,6 +438,9 @@ export default function PredictionDetail() {
           </Link>
         </motion.div>
       </div>
+    
+      {/* Mobile Navigation */}
+      <MobileNav />
     </div>
   )
 }

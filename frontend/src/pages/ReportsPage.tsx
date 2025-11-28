@@ -4,6 +4,7 @@ import { FileText, Download, Calendar, TrendingUp, Eye, Trash2 } from 'lucide-re
 import { motion } from 'framer-motion'
 import { useAuth } from '../lib/auth'
 import { reportAPI } from '../lib/api'
+import MobileNav from '../components/MobileNav'
 
 interface Report {
   report_id: string
@@ -256,6 +257,9 @@ export default function ReportsPage() {
           </>
         )}
       </div>
+    
+      {/* Mobile Navigation */}
+      <MobileNav />
     </div>
   )
 }

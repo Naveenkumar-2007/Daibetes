@@ -253,6 +253,28 @@ export default function AdminPage() {
     }
   }
 
+  const handleDeleteUser = async (userId: string, username: string, fullName: string) => {
+    if (!confirm(`⚠️ Delete user "${fullName}" (@${username})?\n\nThis will permanently remove:\n• User account\n• All predictions\n• All reports\n• Chat history\n\nThis action CANNOT be undone!`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+      const data = await response.json()
+      if (data.success) {
+        alert(`✅ User "${fullName}" deleted successfully`)
+        fetchAdminData() // Refresh user list
+      } else {
+        alert('❌ Delete failed: ' + data.error)
+      }
+    } catch (error) {
+      alert('❌ Delete failed. Please try again.')
+    }
+  }
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B'
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
@@ -382,36 +404,56 @@ export default function AdminPage() {
             {/* Users Table */}
             <div className="card overflow-hidden">
               <h2 className="text-lg font-bold text-gray-900 mb-4">All Users</h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Predictions</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reports</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {users.map((user) => (
-                      <tr key={user.user_id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
-                            <p className="text-xs text-gray-500">@{user.username}</p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">{user.prediction_count}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">{user.report_count}</td>
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                        <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                        <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
+                        <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stats</th>
+                        <th className="px-3 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {users.map((user) => (
+                        <tr key={user.user_id} className="hover:bg-gray-50">
+                          <td className="px-3 sm:px-4 py-3">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 truncate max-w-[150px] sm:max-w-none">{user.full_name}</p>
+                              <p className="text-xs text-gray-500">@{user.username}</p>
+                            </div>
+                          </td>
+                          <td className="hidden sm:table-cell px-4 py-3 text-sm text-gray-600 truncate max-w-[200px]">{user.email}</td>
+                          <td className="hidden md:table-cell px-4 py-3 text-sm text-gray-600">
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-3 sm:px-4 py-3">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-gray-600">
+                                📊 {user.prediction_count} predictions
+                              </span>
+                              <span className="text-xs text-gray-600">
+                                📄 {user.report_count} reports
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-3 sm:px-4 py-3 text-right">
+                            <button
+                              onClick={() => handleDeleteUser(user.user_id, user.username, user.full_name)}
+                              className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 active:bg-red-100 rounded-lg transition-colors touch-target"
+                              title="Delete user"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              <span className="hidden sm:inline">Delete</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </>
