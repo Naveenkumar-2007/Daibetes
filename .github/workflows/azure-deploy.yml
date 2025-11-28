@@ -97,7 +97,7 @@ jobs:
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --src deploy.zip \
-            --timeout 300
+            --timeout 600
           
           echo "✅ Deployment complete"
 
@@ -134,10 +134,11 @@ jobs:
           
           # Set Firebase Service Account JSON separately (multiline JSON needs special handling)
           echo "Setting FIREBASE_SERVICE_ACCOUNT_JSON..."
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' | az webapp config appsettings set \
+          FIREBASE_JSON='${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}'
+          az webapp config appsettings set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --settings FIREBASE_SERVICE_ACCOUNT_JSON="@/dev/stdin"
+            --settings "FIREBASE_SERVICE_ACCOUNT_JSON=${FIREBASE_JSON}"
           
           echo "✅ Environment variables configured"
 
