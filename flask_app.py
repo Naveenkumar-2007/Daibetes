@@ -3821,17 +3821,14 @@ def upload_chatbot_document():
                     'size': len(content)
                 })
                 
-                # Add to in-memory knowledge base
-                chatbot_knowledge_base.append({
-                    'id': doc_id,
-                    'filename': filename,
-                    'content': content
-                })
+                # Reload knowledge base from Firebase
+                load_chatbot_knowledge_base()
                 
                 return jsonify({
                     'success': True,
-                    'message': f'Document "{filename}" uploaded successfully',
-                    'document_id': doc_id
+                    'message': f'Document "{filename}" uploaded and chatbot trained successfully',
+                    'document_id': doc_id,
+                    'total_documents': len(chatbot_knowledge_base)
                 })
         
         elif request.json and request.json.get('url'):
@@ -3853,16 +3850,14 @@ def upload_chatbot_document():
                     'size': len(content)
                 })
                 
-                chatbot_knowledge_base.append({
-                    'id': doc_id,
-                    'url': url,
-                    'content': content
-                })
+                # Reload knowledge base from Firebase
+                load_chatbot_knowledge_base()
                 
                 return jsonify({
                     'success': True,
-                    'message': 'URL content added successfully',
-                    'document_id': doc_id
+                    'message': 'URL content added and chatbot trained successfully',
+                    'document_id': doc_id,
+                    'total_documents': len(chatbot_knowledge_base)
                 })
             except Exception as e:
                 return jsonify({
@@ -3886,16 +3881,14 @@ def upload_chatbot_document():
                 'size': len(text)
             })
             
-            chatbot_knowledge_base.append({
-                'id': doc_id,
-                'title': title,
-                'content': text
-            })
+            # Reload knowledge base from Firebase
+            load_chatbot_knowledge_base()
             
             return jsonify({
                 'success': True,
-                'message': 'Text added successfully',
-                'document_id': doc_id
+                'message': 'Text added and chatbot trained successfully',
+                'document_id': doc_id,
+                'total_documents': len(chatbot_knowledge_base)
             })
         
         return jsonify({
@@ -3907,6 +3900,27 @@ def upload_chatbot_document():
         print(f"Error uploading document: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/admin/chatbot/train', methods=['POST'])
+@login_required
+@admin_required
+def train_chatbot():
+    """Reload chatbot knowledge base from Firebase"""
+    try:
+        load_chatbot_knowledge_base()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Chatbot trained successfully with {len(chatbot_knowledge_base)} documents',
+            'document_count': len(chatbot_knowledge_base)
+        })
+    except Exception as e:
+        print(f"Error training chatbot: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -3925,13 +3939,13 @@ def delete_chatbot_document(doc_id):
         docs_ref = firebase_config.db_ref.child('chatbot_documents').child(doc_id)
         docs_ref.delete()
         
-        # Remove from in-memory knowledge base
-        global chatbot_knowledge_base
-        chatbot_knowledge_base = [doc for doc in chatbot_knowledge_base if doc.get('id') != doc_id]
+        # Reload knowledge base from Firebase
+        load_chatbot_knowledge_base()
         
         return jsonify({
             'success': True,
-            'message': 'Document deleted successfully'
+            'message': 'Document deleted and chatbot retrained successfully',
+            'total_documents': len(chatbot_knowledge_base)
         })
     except Exception as e:
         print(f"Error deleting document: {e}")

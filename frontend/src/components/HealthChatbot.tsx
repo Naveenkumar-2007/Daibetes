@@ -147,7 +147,7 @@ export default function HealthChatbot() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-[420px] max-w-[calc(100vw-3rem)] h-[650px] max-h-[calc(100vh-6rem)] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden border-2 border-purple-200">
+        <div className="fixed bottom-0 sm:bottom-6 right-0 sm:right-6 z-50 w-full sm:w-[420px] sm:max-w-[calc(100vw-3rem)] h-[100vh] sm:h-[650px] sm:max-h-[calc(100vh-6rem)] bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden sm:border-2 border-purple-200">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 text-white p-5 flex items-center justify-between">
             <div className="flex items-center gap-3">

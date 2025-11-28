@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Users, FileText, TrendingUp, Activity, Upload, Database, Trash2 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Users, FileText, TrendingUp, Activity, Upload, Database, Trash2, RefreshCw, FileUp, Link as LinkIcon, X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../lib/auth'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { adminAPI } from '../lib/api'
+import MobileNav from '../components/MobileNav'
 
 interface User {
   user_id: string
@@ -32,7 +33,7 @@ interface ChatbotDocument {
 }
 
 export default function AdminPage() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [users, setUsers] = useState<User[]>([])
   const [stats, setStats] = useState<Stats>({
@@ -45,8 +46,12 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'users' | 'chatbot'>('users')
   const [documents, setDocuments] = useState<ChatbotDocument[]>([])
   const [uploading, setUploading] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [showUserModal, setShowUserModal] = useState(false)
+  const [training, setTraining] = useState(false)
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [uploadType, setUploadType] = useState<'file' | 'url' | 'text'>('file')
+  const [urlInput, setUrlInput] = useState('')
+  const [textInput, setTextInput] = useState('')
+  const [textTitle, setTextTitle] = useState('')
 
   useEffect(() => {
     // Check if user is admin
@@ -98,6 +103,14 @@ export default function AdminPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Validate file type
+    const allowedTypes = ['text/plain', 'application/pdf', 'text/markdown', 
+                          'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(txt|pdf|md|doc|docx)$/i)) {
+      alert('Please upload a valid document (TXT, PDF, MD, DOC, DOCX)')
+      return
+    }
+
     setUploading(true)
     const formData = new FormData()
     formData.append('file', file)
@@ -110,22 +123,33 @@ export default function AdminPage() {
       })
       const data = await response.json()
       if (data.success) {
-        alert('Document uploaded successfully!')
+        alert(`✅ ${data.message}\n\n📊 Total documents: ${data.total_documents}`)
         fetchDocuments()
+        setShowUploadModal(false)
       } else {
-        alert('Upload failed: ' + data.error)
+        alert('❌ Upload failed: ' + data.error)
       }
     } catch (error) {
       console.error('Upload error:', error)
-      alert('Upload failed')
+      alert('❌ Upload failed. Please try again.')
     } finally {
       setUploading(false)
     }
   }
 
   const handleUrlUpload = async () => {
-    const url = prompt('Enter URL:')
-    if (!url) return
+    if (!urlInput.trim()) {
+      alert('Please enter a URL')
+      return
+    }
+
+    // Basic URL validation
+    try {
+      new URL(urlInput)
+    } catch {
+      alert('Please enter a valid URL')
+      return
+    }
 
     setUploading(true)
     try {
@@ -133,27 +157,29 @@ export default function AdminPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url: urlInput })
       })
       const data = await response.json()
       if (data.success) {
-        alert('URL content added successfully!')
+        alert(`✅ ${data.message}\n\n📊 Total documents: ${data.total_documents}`)
         fetchDocuments()
+        setShowUploadModal(false)
+        setUrlInput('')
       } else {
-        alert('Failed: ' + data.error)
+        alert('❌ Failed: ' + data.error)
       }
     } catch (error) {
-      alert('Upload failed')
+      alert('❌ Upload failed. Please try again.')
     } finally {
       setUploading(false)
     }
   }
 
   const handleTextUpload = async () => {
-    const title = prompt('Enter title:')
-    if (!title) return
-    const text = prompt('Enter text content:')
-    if (!text) return
+    if (!textInput.trim() || !textTitle.trim()) {
+      alert('Please enter both title and text content')
+      return
+    }
 
     setUploading(true)
     try {
@@ -161,24 +187,54 @@ export default function AdminPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ title, text })
+        body: JSON.stringify({ text: textInput, title: textTitle })
       })
       const data = await response.json()
       if (data.success) {
-        alert('Text added successfully!')
+        alert(`✅ ${data.message}\n\n📊 Total documents: ${data.total_documents}`)
         fetchDocuments()
+        setShowUploadModal(false)
+        setTextInput('')
+        setTextTitle('')
       } else {
-        alert('Failed: ' + data.error)
+        alert('❌ Failed: ' + data.error)
       }
     } catch (error) {
-      alert('Upload failed')
+      alert('❌ Upload failed. Please try again.')
     } finally {
       setUploading(false)
     }
   }
 
-  const handleDeleteDocument = async (docId: string) => {
-    if (!confirm('Delete this document?')) return
+  const handleTrainChatbot = async () => {
+    if (!confirm('Train chatbot with all uploaded documents?\n\nThis will reload the knowledge base from the database.')) {
+      return
+    }
+
+    setTraining(true)
+    try {
+      const response = await fetch('/api/admin/chatbot/train', {
+        method: 'POST',
+        credentials: 'include'
+      })
+      const data = await response.json()
+      if (data.success) {
+        alert(`✅ ${data.message}`)
+        fetchDocuments()
+      } else {
+        alert('❌ Training failed: ' + data.error)
+      }
+    } catch (error) {
+      alert('❌ Training failed. Please try again.')
+    } finally {
+      setTraining(false)
+    }
+  }
+
+  const handleDeleteDocument = async (docId: string, filename: string) => {
+    if (!confirm(`Delete "${filename}"?\n\nThis will remove the document and retrain the chatbot.`)) {
+      return
+    }
 
     try {
       const response = await fetch(`/api/admin/chatbot/documents/${docId}`, {
@@ -187,396 +243,439 @@ export default function AdminPage() {
       })
       const data = await response.json()
       if (data.success) {
-        alert('Document deleted!')
+        alert(`✅ ${data.message}`)
         fetchDocuments()
+      } else {
+        alert('❌ Delete failed: ' + data.error)
       }
     } catch (error) {
-      alert('Delete failed')
+      alert('❌ Delete failed. Please try again.')
     }
   }
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    if (!confirm(`Are you sure you want to delete user "${userName}"? This will delete all their predictions and reports. This action cannot be undone.`)) return
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
 
+  const formatDate = (dateString: string) => {
     try {
-      const response = await adminAPI.deleteUser(userId)
-      if (response.data.success) {
-        alert('User deleted successfully!')
-        fetchAdminData()
-      } else {
-        alert('Failed to delete user: ' + (response.data.error || 'Unknown error'))
-      }
-    } catch (error: any) {
-      console.error('Delete user error:', error)
-      alert('Failed to delete user: ' + (error.response?.data?.error || error.message || 'Network error'))
+      return new Date(dateString).toLocaleString()
+    } catch {
+      return dateString
     }
   }
 
-  if (user?.role !== 'admin') {
-    return null
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin panel...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
-      {/* Top Navigation */}
-      <nav className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="text-2xl font-extrabold text-purple-900">ADMIN DASHBOARD</div>
-            <div className="flex items-center gap-6">
-              <a href="/dashboard" className="text-gray-700 hover:text-purple-600 transition-colors">User Dashboard</a>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+              <p className="text-sm text-gray-600 mt-1">Manage users and AI chatbot</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link to="/dashboard" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                Back to Dashboard
+              </Link>
+              <button
+                onClick={logout}
+                className="text-sm text-red-600 hover:text-red-700 font-medium"
+              >
+                Logout
+              </button>
             </div>
           </div>
+
+          {/* Tabs */}
+          <div className="flex gap-4 mt-4 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`pb-3 px-2 font-medium text-sm transition-colors relative ${
+                activeTab === 'users'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Users className="w-4 h-4 inline mr-2" />
+              Users ({users.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('chatbot')}
+              className={`pb-3 px-2 font-medium text-sm transition-colors relative ${
+                activeTab === 'chatbot'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Database className="w-4 h-4 inline mr-2" />
+              AI Chatbot ({documents.length})
+            </button>
+          </div>
         </div>
-      </nav>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">System Overview</h1>
-          <p className="text-gray-600">Monitor users, predictions, and chatbot knowledge base</p>
-        </motion.div>
-
-        {/* Tabs */}
-        <div className="flex gap-4 mb-8">
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-              activeTab === 'users'
-                ? 'bg-purple-600 text-white shadow-lg'
-                : 'bg-white text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <Users className="inline w-5 h-5 mr-2" />
-            Users & Stats
-          </button>
-          <button
-            onClick={() => setActiveTab('chatbot')}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-              activeTab === 'chatbot'
-                ? 'bg-purple-600 text-white shadow-lg'
-                : 'bg-white text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <Database className="inline w-5 h-5 mr-2" />
-            Chatbot Knowledge Base
-          </button>
-        </div>
-
-        {activeTab === 'users' ? (
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-24">
+        {activeTab === 'users' && (
           <>
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <Users className="w-8 h-8" />
-              <span className="text-3xl font-bold">{stats.total_users}</span>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="card"
+              >
+                <Users className="w-8 h-8 text-blue-600 mb-2" />
+                <p className="text-sm text-gray-600">Total Users</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.total_users}</p>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="card"
+              >
+                <Activity className="w-8 h-8 text-green-600 mb-2" />
+                <p className="text-sm text-gray-600">Predictions</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.total_predictions}</p>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="card"
+              >
+                <FileText className="w-8 h-8 text-purple-600 mb-2" />
+                <p className="text-sm text-gray-600">Reports</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.total_reports}</p>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="card"
+              >
+                <TrendingUp className="w-8 h-8 text-red-600 mb-2" />
+                <p className="text-sm text-gray-600">High Risk</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.positive_predictions}</p>
+              </motion.div>
             </div>
-            <p className="text-blue-100 font-medium">Total Users</p>
-          </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <Activity className="w-8 h-8" />
-              <span className="text-3xl font-bold">{stats.total_predictions}</span>
-            </div>
-            <p className="text-green-100 font-medium">Total Predictions</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg p-6 text-white"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <FileText className="w-8 h-8" />
-              <span className="text-3xl font-bold">{stats.total_reports}</span>
-            </div>
-            <p className="text-purple-100 font-medium">Total Reports</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg p-6 text-white"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <TrendingUp className="w-8 h-8" />
-              <span className="text-3xl font-bold">{stats.positive_predictions}</span>
-            </div>
-            <p className="text-red-100 font-medium">Positive Cases</p>
-          </motion.div>
-        </div>
-
-        {/* Users Table */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-white rounded-2xl shadow-lg overflow-hidden"
-        >
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-900">All Users</h2>
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Predictions</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reports</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {users.map((user) => (
-                    <tr key={user.user_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-blue-600 font-semibold">
-                              {user.full_name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
-                            <div className="text-sm text-gray-500">@{user.username}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full font-semibold">
-                          {user.prediction_count}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full font-semibold">
-                          {user.report_count}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center gap-3">
-                          <button 
-                            onClick={() => {
-                              setSelectedUser(user)
-                              setShowUserModal(true)
-                            }}
-                            className="text-purple-600 hover:text-purple-900 hover:underline"
-                          >
-                            View Details
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUser(user.user_id, user.full_name)}
-                            className="text-red-600 hover:text-red-900 transition-colors"
-                            title="Delete User"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+            {/* Users Table */}
+            <div className="card overflow-hidden">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">All Users</h2>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Predictions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reports</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </motion.div>
-          </>
-        ) : (
-          /* Chatbot Knowledge Base Tab */
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
-            {/* Upload Section */}
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                <Upload className="inline w-6 h-6 mr-2" />
-                Upload Health Documents
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Add diabetes and health-related documents, URLs, or text to enhance the chatbot's knowledge base.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <button
-                  onClick={() => document.getElementById('file-upload')?.click()}
-                  disabled={uploading}
-                  className="p-6 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all disabled:opacity-50"
-                >
-                  <FileText className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                  <div className="font-semibold text-gray-900">Upload File</div>
-                  <div className="text-sm text-gray-500">PDF, TXT, DOC, PPT</div>
-                </button>
-                <input
-                  id="file-upload"
-                  type="file"
-                  accept=".txt,.pdf,.doc,.docx,.ppt,.pptx,.md"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-
-                <button
-                  onClick={handleUrlUpload}
-                  disabled={uploading}
-                  className="p-6 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all disabled:opacity-50"
-                >
-                  <Database className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                  <div className="font-semibold text-gray-900">Add URL</div>
-                  <div className="text-sm text-gray-500">Web article or page</div>
-                </button>
-
-                <button
-                  onClick={handleTextUpload}
-                  disabled={uploading}
-                  className="p-6 border-2 border-dashed border-green-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all disabled:opacity-50"
-                >
-                  <FileText className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                  <div className="font-semibold text-gray-900">Add Text</div>
-                  <div className="text-sm text-gray-500">Custom content</div>
-                </button>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {users.map((user) => (
+                      <tr key={user.user_id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
+                            <p className="text-xs text-gray-500">@{user.username}</p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">{user.prediction_count}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">{user.report_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+            </div>
+          </>
+        )}
 
-              {uploading && (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
-                  <p className="text-gray-600 mt-2">Uploading...</p>
+        {activeTab === 'chatbot' && (
+          <>
+            {/* Chatbot Controls */}
+            <div className="card mb-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">AI Chatbot Knowledge Base</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Upload documents to train your AI health assistant • {documents.length} documents loaded
+                  </p>
                 </div>
-              )}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload Document
+                  </button>
+                  <button
+                    onClick={handleTrainChatbot}
+                    disabled={training || documents.length === 0}
+                    className="btn-secondary flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${training ? 'animate-spin' : ''}`} />
+                    {training ? 'Training...' : 'Train Chatbot'}
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Documents List */}
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Knowledge Base Documents</h2>
-              <div className="space-y-3">
-                {documents.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No documents uploaded yet</p>
-                ) : (
-                  documents.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-purple-600" />
-                        <div>
-                          <div className="font-semibold text-gray-900">
-                            {doc.filename || doc.url || 'Document'}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {doc.type} • {(doc.size / 1024).toFixed(1)} KB • {new Date(doc.uploaded_at).toLocaleDateString()}
-                          </div>
+            <div className="space-y-3">
+              {documents.length === 0 ? (
+                <div className="card text-center py-12">
+                  <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No documents uploaded</h3>
+                  <p className="text-gray-600 mb-4">Upload medical documents, articles, or FAQs to train your AI chatbot</p>
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="btn-primary inline-flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload First Document
+                  </button>
+                </div>
+              ) : (
+                documents.map((doc) => (
+                  <motion.div
+                    key={doc.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="card hover:shadow-lg transition-shadow"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                          <h3 className="font-medium text-gray-900 truncate">{doc.filename || 'Untitled'}</h3>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            doc.type === 'file' ? 'bg-blue-100 text-blue-700' :
+                            doc.type === 'url' ? 'bg-green-100 text-green-700' :
+                            'bg-purple-100 text-purple-700'
+                          }`}>
+                            {doc.type.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                          <span>📊 {formatFileSize(doc.size)}</span>
+                          <span>📅 {formatDate(doc.uploaded_at)}</span>
+                          {doc.url && (
+                            <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
+                              <LinkIcon className="w-3 h-3" />
+                              View source
+                            </a>
+                          )}
                         </div>
                       </div>
                       <button
-                        onClick={() => handleDeleteDocument(doc.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        onClick={() => handleDeleteDocument(doc.id, doc.filename || 'this document')}
+                        className="flex-shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete document"
                       >
-                        <Trash2 className="w-5 h-5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                  ))
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </main>
+
+      {/* Upload Modal */}
+      <AnimatePresence>
+        {showUploadModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            onClick={() => !uploading && setShowUploadModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-gray-900">Upload Document</h2>
+                  <button
+                    onClick={() => !uploading && setShowUploadModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    disabled={uploading}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Upload Type Selector */}
+                <div className="flex gap-2 mb-6">
+                  <button
+                    onClick={() => setUploadType('file')}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
+                      uploadType === 'file'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <FileUp className="w-4 h-4 inline mr-2" />
+                    File
+                  </button>
+                  <button
+                    onClick={() => setUploadType('url')}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
+                      uploadType === 'url'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <LinkIcon className="w-4 h-4 inline mr-2" />
+                    URL
+                  </button>
+                  <button
+                    onClick={() => setUploadType('text')}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
+                      uploadType === 'text'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4 inline mr-2" />
+                    Text
+                  </button>
+                </div>
+
+                {/* Upload Content */}
+                {uploadType === 'file' && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Upload PDF, TXT, MD, DOC, or DOCX files. The content will be automatically extracted and used to train the chatbot.
+                    </p>
+                    <label className="block w-full">
+                      <input
+                        type="file"
+                        accept=".txt,.pdf,.md,.doc,.docx"
+                        onChange={handleFileUpload}
+                        disabled={uploading}
+                        className="hidden"
+                        id="fileInput"
+                      />
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer">
+                        <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <p className="text-sm font-medium text-gray-900">
+                          {uploading ? 'Uploading and training...' : 'Click to select file'}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">TXT, PDF, MD, DOC, DOCX (max 10MB)</p>
+                      </div>
+                    </label>
+                  </div>
+                )}
+
+                {uploadType === 'url' && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Enter a URL to fetch and extract content. Works best with articles and documentation pages.
+                    </p>
+                    <input
+                      type="url"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      placeholder="https://example.com/article"
+                      className="input-field mb-4"
+                      disabled={uploading}
+                    />
+                    <button
+                      onClick={handleUrlUpload}
+                      disabled={uploading || !urlInput.trim()}
+                      className="btn-primary w-full disabled:opacity-50"
+                    >
+                      {uploading ? 'Uploading and training...' : 'Upload URL'}
+                    </button>
+                  </div>
+                )}
+
+                {uploadType === 'text' && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Paste or type text content directly. Useful for FAQs, guidelines, or custom knowledge.
+                    </p>
+                    <input
+                      type="text"
+                      value={textTitle}
+                      onChange={(e) => setTextTitle(e.target.value)}
+                      placeholder="Document title..."
+                      className="input-field mb-3"
+                      disabled={uploading}
+                    />
+                    <textarea
+                      value={textInput}
+                      onChange={(e) => setTextInput(e.target.value)}
+                      placeholder="Paste your text content here..."
+                      rows={8}
+                      className="input-field mb-4 resize-none"
+                      disabled={uploading}
+                    />
+                    <button
+                      onClick={handleTextUpload}
+                      disabled={uploading || !textInput.trim() || !textTitle.trim()}
+                      className="btn-primary w-full disabled:opacity-50"
+                    >
+                      {uploading ? 'Uploading and training...' : 'Upload Text'}
+                    </button>
+                  </div>
+                )}
+
+                {uploading && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">Processing...</p>
+                        <p className="text-xs text-blue-700">Uploading and training chatbot automatically</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
-      {/* User Details Modal */}
-      {showUserModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowUserModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">User Details</h2>
-              <button onClick={() => setShowUserModal(false)} className="text-gray-500 hover:text-gray-700">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Full Name</p>
-                  <p className="text-lg font-semibold text-gray-900">{selectedUser.full_name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Username</p>
-                  <p className="text-lg font-semibold text-gray-900">@{selectedUser.username}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Email</p>
-                  <p className="text-lg font-semibold text-gray-900">{selectedUser.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">User ID</p>
-                  <p className="text-lg font-semibold text-gray-900 text-xs">{selectedUser.user_id}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Joined Date</p>
-                  <p className="text-lg font-semibold text-gray-900">{new Date(selectedUser.created_at).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Account Age</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {Math.floor((Date.now() - new Date(selectedUser.created_at).getTime()) / (1000 * 60 * 60 * 24))} days
-                  </p>
-                </div>
-              </div>
-              <div className="border-t pt-4 mt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Activity Statistics</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <p className="text-sm text-green-600 font-medium">Total Predictions</p>
-                    <p className="text-3xl font-bold text-green-700">{selectedUser.prediction_count}</p>
-                  </div>
-                  <div className="bg-purple-50 p-4 rounded-lg">
-                    <p className="text-sm text-purple-600 font-medium">Reports Generated</p>
-                    <p className="text-3xl font-bold text-purple-700">{selectedUser.report_count}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end">
-              <button 
-                onClick={() => setShowUserModal(false)}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Mobile Navigation */}
+      <MobileNav />
     </div>
   )
 }
-
