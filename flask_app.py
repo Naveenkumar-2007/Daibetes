@@ -1024,6 +1024,97 @@ def get_user_reports():
         }), 500
 
 
+@app.route('/api/user/reports/<report_id>', methods=['GET'])
+@login_required
+def get_report_detail(report_id):
+    """Get detailed report data for viewing"""
+    try:
+        user_id = session.get('user_id')
+        is_admin = session.get('role') == 'admin'
+        
+        # Admin can view any report, users can only view their own
+        if is_admin:
+            import firebase_config
+            firebase_config.initialize_firebase()
+            predictions_ref = firebase_config.db_ref.child('predictions').child(report_id)
+            report = predictions_ref.get()
+            
+            if report:
+                report['id'] = report_id
+        else:
+            # Get user's predictions
+            predictions = get_user_predictions(user_id)
+            
+            # Find the specific report
+            report = None
+            for pred in predictions:
+                if (pred.get('id') == report_id or 
+                    pred.get('firebase_id') == report_id or 
+                    pred.get('prediction_id') == report_id or
+                    pred.get('report_id') == report_id):
+                    report = pred
+                    break
+        
+        if not report:
+            return jsonify({'success': False, 'error': 'Report not found'}), 404
+        
+        # Format report data for viewing
+        prediction_text = report.get('prediction', '')
+        if isinstance(prediction_text, int):
+            pred_result = 'High Risk - Diabetes Detected' if prediction_text == 1 else 'Low Risk - No Diabetes'
+        elif 'High' in str(prediction_text):
+            pred_result = 'High Risk - Diabetes Detected'
+        else:
+            pred_result = 'Low Risk - No Diabetes'
+        
+        # Get confidence/probability
+        confidence = report.get('confidence', report.get('probability', 0.5))
+        if isinstance(confidence, (int, float)):
+            if confidence > 1:  # If it's a percentage
+                confidence_pct = confidence
+            else:  # If it's a decimal
+                confidence_pct = confidence * 100
+        else:
+            confidence_pct = 50
+        
+        # Build comprehensive report object
+        report_data = {
+            'report_id': report_id,
+            'patient_name': report.get('patient_name', report.get('name', 'Unknown')),
+            'prediction_result': pred_result,
+            'probability': confidence / 100 if confidence > 1 else confidence,
+            'confidence_percentage': confidence_pct,
+            'generated_at': report.get('timestamp') or report.get('created_at') or datetime.now().isoformat(),
+            'patient_data': {
+                'age': report.get('Age') or report.get('age', 'N/A'),
+                'gender': report.get('sex', 'N/A'),
+                'glucose': report.get('Glucose') or report.get('glucose', 'N/A'),
+                'blood_pressure': report.get('BloodPressure') or report.get('blood_pressure', 'N/A'),
+                'bmi': report.get('BMI') or report.get('bmi', 'N/A'),
+                'insulin': report.get('Insulin') or report.get('insulin', 'N/A'),
+                'skin_thickness': report.get('SkinThickness') or report.get('skin_thickness', 'N/A'),
+                'pregnancies': report.get('Pregnancies') or report.get('pregnancies', 'N/A'),
+                'diabetes_pedigree': report.get('DiabetesPedigreeFunction') or report.get('diabetes_pedigree', 'N/A')
+            },
+            'ai_analysis': report.get('ai_analysis', ''),
+            'risk_factors': report.get('risk_factors', []),
+            'recommendations': report.get('recommendations', [])
+        }
+        
+        return jsonify({
+            'success': True,
+            'report': report_data
+        })
+    except Exception as e:
+        print(f"Error getting report detail: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @app.route('/api/user/update_profile', methods=['POST'])
 @login_required
 def api_update_user_profile():
@@ -3069,7 +3160,7 @@ Provide 3-4 sentences covering: lifestyle changes, preventive measures, and regu
 @login_required
 def download_report(report_id):
     """
-    Download a specific medical report as beautiful PDF
+    Download a comprehensive 2-page PDF report with visualizations
     """
     try:
         user_id = session.get('user_id')
@@ -3092,23 +3183,27 @@ def download_report(report_id):
             # Find the specific report
             report = None
             for pred in history:
-                if pred.get('id') == report_id or pred.get('firebase_id') == report_id or pred.get('report_id') == report_id:
+                if (pred.get('id') == report_id or 
+                    pred.get('firebase_id') == report_id or 
+                    pred.get('report_id') == report_id or
+                    pred.get('prediction_id') == report_id):
                     report = pred
                     break
         
         if not report:
             return jsonify({'success': False, 'error': 'Report not found'}), 404
         
-        # Generate beautiful PDF report
-        pdf_buffer = generate_beautiful_pdf(report, report_id)
+        # Generate comprehensive PDF report with visualizations
+        from pdf_report_generator import generate_enhanced_pdf_report
+        pdf_buffer = generate_enhanced_pdf_report(report, report_id)
         
         # CRITICAL: Seek to beginning of buffer before sending
         pdf_buffer.seek(0)
         
         # Generate filename
-        patient_name = report.get('patient_name', 'Patient')
+        patient_name = report.get('patient_name', report.get('name', 'Patient'))
         timestamp = get_ist_now().strftime('%Y%m%d_%H%M%S')
-        filename = f"diabetes_report_{patient_name.replace(' ', '_')}_{timestamp}.pdf"
+        filename = f"Diabetes_Report_{patient_name.replace(' ', '_')}_{timestamp}.pdf"
         
         # Return with proper headers for PDF
         response = send_file(
@@ -3620,46 +3715,102 @@ def serve_report(filename):
 
 # ------------------- CHATBOT ROUTES -------------------
 
-@app.route('/chatbot/ask', methods=['POST'])
-def chatbot_ask():
+@app.route('/api/chatbot', methods=['POST'])
+def api_chatbot():
     """
-    Integrated chatbot endpoint - uses same LLM as main app
-    No separate backend needed!
+    Main chatbot endpoint - frontend calls this
+    Uses integrated Groq LLM for instant AI responses
     """
     try:
         data = request.get_json()
         
         if not data or 'message' not in data:
             return jsonify({
-                'answer': 'Please provide a message.',
-                'error': True
+                'success': False,
+                'message': 'Please provide a message.',
+                'error': 'Missing message in request'
             }), 400
         
-        user_message = data.get('message', '')
+        user_message = data.get('message', '').strip()
         
-        # Use integrated chatbot
+        if not user_message:
+            return jsonify({
+                'success': False,
+                'message': 'Please enter a question.',
+                'error': 'Empty message'
+            }), 400
+        
+        # Use integrated chatbot with Groq LLM
         response = chatbot.ask_question(user_message)
         
-        return jsonify(response), 200
+        if response.get('error'):
+            return jsonify({
+                'success': False,
+                'message': response.get('answer', 'An error occurred'),
+                'error': 'Chatbot processing error'
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'response': response.get('answer', ''),
+            'message': response.get('answer', '')
+        }), 200
         
     except Exception as e:
-        print(f"❌ Chatbot error: {str(e)}")
+        print(f"❌ Chatbot API error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
-            'answer': 'Sorry, an error occurred while processing your request.',
-            'error': True
+            'success': False,
+            'message': 'Sorry, I encountered an error. Please try again.',
+            'error': str(e)
         }), 500
+
+
+@app.route('/api/chatbot/history', methods=['GET'])
+def api_chatbot_history():
+    """Get chat history for current user"""
+    try:
+        # For now, return empty history (can be enhanced to store in Firebase)
+        return jsonify({
+            'success': True,
+            'history': []
+        }), 200
+    except Exception as e:
+        print(f"❌ Chat history error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'history': []
+        }), 500
+
+
+@app.route('/chatbot/ask', methods=['POST'])
+def chatbot_ask():
+    """
+    Legacy chatbot endpoint - redirects to /api/chatbot
+    """
+    return api_chatbot()
 
 
 @app.route('/chatbot/health', methods=['GET'])
 def chatbot_health():
     """Check if integrated chatbot is ready"""
-    is_healthy = chatbot.health_check()
-    
-    return jsonify({
-        'status': 'healthy' if is_healthy else 'limited',
-        'message': 'Chatbot ready with AI' if is_healthy else 'Chatbot ready (basic mode)',
-        'llm_configured': is_healthy
-    }), 200
+    try:
+        is_healthy = chatbot.health_check()
+        
+        return jsonify({
+            'status': 'healthy' if is_healthy else 'limited',
+            'message': 'Chatbot ready with Groq AI' if is_healthy else 'Chatbot ready (basic mode)',
+            'llm_configured': is_healthy,
+            'model': 'groq/mixtral-8x7b-32768' if is_healthy else 'none'
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'llm_configured': False
+        }), 500
 
 
 # ------------------- RUN APP -------------------

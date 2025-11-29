@@ -116,31 +116,42 @@ ${report.recommendations.map((rec: string, i: number) => `${i + 1}. ${rec}`).joi
 
   const downloadReport = async (reportId: string, patientName: string) => {
     try {
-      const response = await reportAPI.downloadReport(reportId)
+      // Direct fetch to get PDF blob
+      const response = await fetch(`/download_report/${reportId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/pdf'
+        }
+      })
       
-      // Create blob from response data
-      let blob: Blob
-      if (response.data instanceof Blob) {
-        blob = response.data
-      } else if (typeof response.data === 'string') {
-        blob = new Blob([response.data], { type: 'text/plain' })
-      } else {
-        blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'text/plain' })
+      if (!response.ok) {
+        throw new Error('Failed to download report')
       }
       
+      // Get the PDF blob
+      const blob = await response.blob()
+      
+      // Verify it's a PDF
+      if (blob.type !== 'application/pdf' && blob.type !== 'application/octet-stream') {
+        console.warn('Unexpected blob type:', blob.type)
+      }
+      
+      // Create download link
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      const fileName = `diabetes_report_${patientName.replace(/\s+/g, '_')}_${new Date().toLocaleDateString().replace(/\//g, '-')}.txt`
+      const fileName = `Diabetes_Report_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`
       link.setAttribute('download', fileName)
       document.body.appendChild(link)
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-      alert('Report downloaded successfully!')
+      
+      alert('✅ PDF report downloaded successfully!')
     } catch (error: any) {
       console.error('Error downloading report:', error)
-      alert(error.response?.data?.message || 'Failed to download report')
+      alert('Failed to download report. Please try again.')
     }
   }
 
