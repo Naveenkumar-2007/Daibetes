@@ -548,10 +548,14 @@ def authenticate_google_user(id_token_str):
 
 
 def login_required(f):
-    """Decorator to require login for routes"""
+    """Decorator to require authentication for routes"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
+            # Check if this is an API request (expects JSON)
+            if request.path.startswith('/api/'):
+                from flask import jsonify
+                return jsonify({'success': False, 'error': 'Authentication required', 'authenticated': False}), 401
             return redirect(url_for('login_page'))
         return f(*args, **kwargs)
     return decorated_function
@@ -561,8 +565,16 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
+            # Check if this is an API request (expects JSON)
+            if request.path.startswith('/api/'):
+                from flask import jsonify
+                return jsonify({'success': False, 'error': 'Authentication required', 'authenticated': False}), 401
             return redirect(url_for('login_page'))
         if session.get('role') != 'admin':
+            # Check if this is an API request (expects JSON)
+            if request.path.startswith('/api/'):
+                from flask import jsonify
+                return jsonify({'success': False, 'error': 'Admin access required', 'is_admin': False}), 403
             return redirect(url_for('user_dashboard'))
         return f(*args, **kwargs)
     return decorated_function

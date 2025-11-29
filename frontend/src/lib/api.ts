@@ -1,7 +1,9 @@
 import axios from 'axios'
 
+// Always use relative URLs which will be proxied by Vite in development
+// In production, the frontend is served by Flask so relative URLs work
 const api = axios.create({
-  baseURL: import.meta.env.PROD ? '' : 'http://localhost:5000',
+  baseURL: '/',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json'

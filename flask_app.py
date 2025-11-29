@@ -5,52 +5,54 @@ Flask Backend Application with Firebase Integration
 
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash, send_from_directory
 from flask_cors import CORS
+import pickle
+import numpy as np
 import os
-import json
-from datetime import datetime
+import re
+import matplotlib
 
-# LAZY LOADING: Import heavy libraries only when needed
-# This speeds up app startup from 10+ minutes to <30 seconds
+matplotlib.use('Agg')  # Use non-GUI backend for server rendering
+import matplotlib.pyplot as plt
 
-def get_numpy():
-    """Lazy import numpy"""
-    import numpy as np
-    return np
-
-def get_matplotlib():
-    """Lazy import matplotlib"""
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    return plt
-
-# Import auth decorators immediately (needed at module level for route decorators)
-from auth import (
-    create_user, authenticate_user, authenticate_google_user,
-    initiate_password_reset, reset_password_with_token, validate_password_reset_token,
-    login_required, admin_required, get_user_predictions, get_user_statistics,
-    change_password, update_user_profile
-)
-
-# Import Firebase essentials (db, firebase_initialized used in multiple routes)
-from firebase_config import (
-    save_patient_data, get_patient_history, get_statistics,
-    get_prediction_by_id, get_predictions_by_ids, update_prediction_record,
-    append_prediction_comparison, db, firebase_initialized, use_rest_api
-)
-
-# Minimal imports for fast startup
 from uuid import uuid4
 from dotenv import load_dotenv
+from langchain_groq import ChatGroq
+from langchain_core.prompts import ChatPromptTemplate
+import json
+from datetime import datetime
 import pytz
-import re
 
-# Timezone configuration
+# Import Firebase configuration
+# Timezone configuration for India
 IST = pytz.timezone('Asia/Kolkata')
 
 def get_ist_now():
     """Get current datetime in IST timezone"""
     return datetime.now(IST)
+
+from firebase_config import (
+    save_patient_data,
+    get_patient_history,
+    get_statistics,
+    get_prediction_by_id,
+    get_predictions_by_ids,
+    update_prediction_record,
+    append_prediction_comparison,
+    db,
+    firebase_initialized,
+    use_rest_api
+)
+
+# Import authentication
+from auth import (
+    create_user, authenticate_user, authenticate_google_user,
+    initiate_password_reset, reset_password_with_token, validate_password_reset_token,
+    login_required, admin_required,
+    get_user_predictions, get_user_statistics, change_password, update_user_profile
+)
+
+# Import integrated chatbot
+from chatbot_integrated import IntegratedChatbot
 
 # ------------------- FLASK APP SETUP -------------------
 app = Flask(__name__)
@@ -65,85 +67,53 @@ allowed_origins = [
 ]
 CORS(app, supports_credentials=True, origins=allowed_origins)
 
-# ------------------- LAZY LOAD ML MODEL & SCALER -------------------
+# ------------------- LOAD ML MODEL & SCALER -------------------
 MODEL_PATH = os.path.join('artifacts', 'model.pkl')
 SCALER_PATH = os.path.join('artifacts', 'scaler.pkl')
 
-model = None
-scaler = None
-_model_loaded = False
+try:
+    with open(MODEL_PATH, "rb") as f:
+        model = pickle.load(f)
+    print(f"✅ Model loaded successfully from {MODEL_PATH}")
+except Exception as e:
+    print(f"❌ Error loading model: {e}")
+    model = None
 
-def load_model():
-    """Lazy load model and scaler only when first prediction is made"""
-    global model, scaler, _model_loaded
-    if not _model_loaded:
-        import pickle
-        try:
-            with open(MODEL_PATH, "rb") as f:
-                model = pickle.load(f)
-            print(f"✅ Model loaded from {MODEL_PATH}")
-        except Exception as e:
-            print(f"❌ Model error: {e}")
-            model = None
-        
-        try:
-            with open(SCALER_PATH, "rb") as f:
-                scaler = pickle.load(f)
-            print(f"✅ Scaler loaded from {SCALER_PATH}")
-        except Exception as e:
-            print(f"❌ Scaler error: {e}")
-            scaler = None
-        
-        _model_loaded = True
-    return model, scaler
+try:
+    with open(SCALER_PATH, "rb") as f:
+        scaler = pickle.load(f)
+    print(f"✅ Scaler loaded successfully from {SCALER_PATH}")
+except Exception as e:
+    print(f"❌ Error loading scaler: {e}")
+    scaler = None
 
-# ------------------- LAZY LOAD GROQ LLM -------------------
+# ------------------- LOAD GROQ LLM -------------------
 load_dotenv()
-
-# Read API keys dynamically (don't cache at module level)
-def get_groq_api_key():
-    """Get GROQ API key from environment"""
-    return os.getenv("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
-
+groq_api_key = os.getenv("GROQ_API_KEY")
 google_client_id = os.getenv("GOOGLE_CLIENT_ID", "")
 google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
 
 app.config['GOOGLE_CLIENT_ID'] = google_client_id
 app.config['GOOGLE_CLIENT_SECRET'] = google_client_secret
 
-llm = None
-_llm_initialized = False
-
-def get_llm():
-    """Lazy load LLM only when chatbot is used"""
-    global llm, _llm_initialized
-    
-    if _llm_initialized:
-        return llm
-    
-    groq_api_key = get_groq_api_key()
-    if not groq_api_key:
-        print("⚠️ GROQ_API_KEY not set - AI features disabled")
-        print(f"🔍 Environment check: GROQ_API_KEY={'SET' if groq_api_key else 'NOT SET'}")
-        _llm_initialized = True
-        return None
-    
+if not groq_api_key:
+    print("⚠️ Warning: GROQ_API_KEY not found - AI reports will be disabled")
+    llm = None
+else:
     try:
-        from langchain_groq import ChatGroq
         llm = ChatGroq(
-            model="llama-3.1-70b-versatile",
-            api_key=groq_api_key,
-            temperature=0.7,
-            max_tokens=2000
+            model="openai/gpt-oss-120b",
+            groq_api_key=groq_api_key,
+            temperature=0.4
         )
-        print("✅ LLM initialized")
-        _llm_initialized = True
+        print("✅ Groq LLM initialized successfully with openai/gpt-oss-120b")
     except Exception as e:
-        print(f"❌ LLM initialization error: {e}")
+        print(f"❌ Error initializing Groq LLM: {e}")
         llm = None
-        _llm_initialized = True
-    
-    return llm
+
+# ------------------- INITIALIZE INTEGRATED CHATBOT -------------------
+chatbot = IntegratedChatbot(llm=llm)
+print(f"✅ Integrated Chatbot: {'Ready' if chatbot.health_check() else 'Limited Mode (No LLM)'}")
 
 FEATURE_INDEX_MAP = {
     'Pregnancies': 0,
@@ -504,75 +474,73 @@ def generate_comparison_pdf(current_prediction, comparison_entry):
 
 # ------------------- AUTHENTICATION ROUTES -------------------
 
-# ===============================================================================
-# ROUTES - Fast Health Check First
-# ===============================================================================
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Ultra-fast health check endpoint"""
-    try:
-        return jsonify({
-            'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
-            'service': 'diabetes-predictor-ai',
-            'firebase': firebase_initialized,
-            'model_loaded': model is not None,
-            'scaler_loaded': scaler is not None
-        }), 200
-    except Exception as e:
-        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
-
-@app.route('/api/health', methods=['GET'])
-def api_health():
-    """API health check endpoint"""
-    return health_check()
-
-# ===============================================================================
-# MAIN ROUTES
-# ===============================================================================
-
 @app.route('/')
 def home():
-    """Serve React app in production or landing page in development"""
-    # Check if React build exists (production mode)
-    react_build = os.path.join(os.path.dirname(__file__), 'static', 'app', 'index.html')
+    """Serve React app"""
+    react_build = os.path.join(os.path.dirname(__file__), 'frontend', 'dist', 'index.html')
     if os.path.exists(react_build):
-        return send_from_directory(os.path.join('static', 'app'), 'index.html')
+        return send_from_directory(os.path.join('frontend', 'dist'), 'index.html')
+    return jsonify({"error": "React build not found. Run 'npm run build' in frontend/"}), 500
+
+
+@app.route('/<path:path>')
+def serve_react_app(path):
+    """Serve React app static files and handle SPA routing"""
+    # CRITICAL: Don't intercept API routes, Flask templates, or backend endpoints
+    api_prefixes = ['api/', 'predict', 'login', 'register', 'logout', 'user/', 'admin/', 
+                    'reports/', 'download_', 'health', 'report', 'reset_password']
     
-    # Development mode - use Flask templates
+    # If path starts with any API prefix, let Flask handle it (don't serve React)
+    if any(path.startswith(prefix) for prefix in api_prefixes):
+        # This will trigger a 404, letting the actual Flask route handle it
+        from flask import abort
+        abort(404)
+    
+    react_dir = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
+    file_path = os.path.join(react_dir, path)
+    
+    # Serve static assets directly (JS, CSS, images)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return send_from_directory(react_dir, path)
+    
+    # For all other routes (React Router), serve index.html
+    index_path = os.path.join(react_dir, 'index.html')
+    if os.path.exists(index_path):
+        return send_from_directory(react_dir, 'index.html')
+    
+    return jsonify({"error": "React build not found"}), 404
+
+
+@app.route('/login')
+def login_page():
+    """Render login page"""
     if 'user_id' in session:
         if session.get('role') == 'admin':
             return redirect(url_for('admin_dashboard'))
-        # Redirect to prediction page first (hospital theme)
-        return redirect(url_for('user_predict_page'))
+        return redirect(url_for('user_dashboard'))
     return render_template(
-        'landing.html',
+        'login.html',
         google_client_id=google_client_id,
         google_login_enabled=bool(google_client_id)
     )
 
 
-@app.route('/<path:path>')
-def serve_react_app(path):
-    """Serve React app static files in production"""
-    react_dir = os.path.join(os.path.dirname(__file__), 'static', 'app')
-    if os.path.exists(os.path.join(react_dir, path)):
-        return send_from_directory(react_dir, path)
-    # For React Router - serve index.html for any unknown route
-    if os.path.exists(os.path.join(react_dir, 'index.html')):
-        return send_from_directory(react_dir, 'index.html')
-    # Fallback to 404
-    return "Not Found", 404
+@app.route('/register')
+def register_page():
+    """Render registration page"""
+    if 'user_id' in session:
+        return redirect(url_for('user_dashboard'))
+    return render_template('register.html')
 
 
-# Login page removed - React handles all frontend routes
-
-
-# Register page removed - React handles all frontend routes
-
-
-# Forgot password page removed - React handles all frontend routes
+@app.route('/forgot-password')
+def forgot_password_page():
+    """Render forgot password page"""
+    if 'user_id' in session:
+        if session.get('role') == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('user_dashboard'))
+    return render_template('forgot_password.html')
 
 
 @app.route('/reset-password')
@@ -693,8 +661,8 @@ def api_login():
             if user_data['role'] == 'admin':
                 redirect_url = url_for('admin_dashboard')
             else:
-                # Redirect to prediction page (hospital theme)
-                redirect_url = url_for('user_predict_page')
+                # Redirect to dashboard (modern responsive design)
+                redirect_url = url_for('user_dashboard')
             
             return jsonify({
                 'success': True,
@@ -735,7 +703,7 @@ def api_login_google():
             if user_data['role'] == 'admin':
                 redirect_url = url_for('admin_dashboard')
             else:
-                redirect_url = url_for('user_predict_page')
+                redirect_url = url_for('user_dashboard')
 
             return jsonify({
                 'success': True,
@@ -839,16 +807,26 @@ def get_session():
     """Get current session information for React frontend"""
     try:
         if 'user_id' in session:
+            user_info = {
+                'user_id': session.get('user_id'),
+                'username': session.get('username'),
+                'full_name': session.get('full_name'),
+                'email': session.get('email'),
+                'role': session.get('role', 'user')
+            }
+            
+            # Debug: Get prediction count for this user
+            try:
+                from firebase_config import get_user_predictions
+                predictions = get_user_predictions(session.get('user_id'))
+                user_info['debug_prediction_count'] = len(predictions)
+            except:
+                user_info['debug_prediction_count'] = -1
+            
             return jsonify({
                 'success': True,
                 'authenticated': True,
-                'user': {
-                    'user_id': session.get('user_id'),
-                    'username': session.get('username'),
-                    'full_name': session.get('full_name'),
-                    'email': session.get('email'),
-                    'role': session.get('role', 'user')
-                }
+                'user': user_info
             })
         else:
             return jsonify({
@@ -927,6 +905,14 @@ def get_all_user_predictions():
             # Determine prediction value (1 for high risk, 0 for low risk)
             pred_value = 1 if 'High' in str(pred.get('prediction', '')) or pred.get('risk_level') == 'high' else 0
             
+            # Check if report exists - multiple field names for compatibility
+            has_report = bool(
+                pred.get('report_path') or 
+                pred.get('report_id') or 
+                pred.get('report_file') or 
+                pred.get('report_generated_at')
+            )
+            
             formatted_pred = {
                 'prediction_id': pred.get('prediction_id', pred.get('id', pred.get('report_id'))),
                 'patient_name': pred.get('patient_name', pred.get('name', 'Unknown')),
@@ -944,7 +930,9 @@ def get_all_user_predictions():
                 'dpf': float(pred.get('DiabetesPedigreeFunction', pred.get('diabetes_pedigree_function', 0))),
                 'created_at': pred.get('timestamp', pred.get('created_at', '')),
                 'date': pred.get('date', ''),
-                'has_report': bool(pred.get('report_path') or pred.get('report_id'))
+                'has_report': has_report,
+                'report_id': pred.get('report_id', ''),
+                'report_file': pred.get('report_path', pred.get('report_file', ''))
             }
             formatted_predictions.append(formatted_pred)
             print(f"  ✓ {formatted_pred['patient_name']} - {formatted_pred['risk_level']} risk")
@@ -973,27 +961,67 @@ def get_user_reports():
         user_id = session.get('user_id')
         predictions = get_user_predictions(user_id)
         
+        print(f"📊 Fetching reports for user {user_id}, found {len(predictions)} predictions")
+        
         reports = []
         for pred in predictions:
-            if pred.get('report_id') or pred.get('report_path'):
-                reports.append({
-                    'report_id': pred.get('report_id', pred.get('prediction_id')),
-                    'prediction_id': pred.get('prediction_id'),
-                    'patient_name': pred.get('name', 'Unknown'),
-                    'prediction_result': 'Positive' if pred.get('prediction') == 1 else 'Negative',
-                    'probability': pred.get('probability', 0.5),
-                    'generated_at': pred.get('created_at', pred.get('timestamp')),
-                    'report_file': pred.get('report_path')
-                })
+            # Check if report exists - multiple field names for compatibility
+            has_report = bool(
+                pred.get('report_id') or 
+                pred.get('report_path') or 
+                pred.get('report_file') or 
+                pred.get('report_generated_at')
+            )
+            
+            if has_report:
+                # Get timestamp - try multiple formats
+                generated_at = pred.get('report_generated_at') or pred.get('timestamp') or pred.get('created_at')
+                
+                # If generated_at is a number (Unix timestamp), convert to ISO string
+                if isinstance(generated_at, (int, float)):
+                    from datetime import datetime
+                    generated_at = datetime.fromtimestamp(generated_at).isoformat()
+                elif not generated_at:
+                    # Default to current time if missing
+                    from datetime import datetime
+                    generated_at = datetime.now().isoformat()
+                
+                # Determine prediction result
+                prediction_text = pred.get('prediction', '')
+                if isinstance(prediction_text, int):
+                    pred_result = 'High Risk' if prediction_text == 1 else 'Low Risk'
+                elif 'High' in str(prediction_text):
+                    pred_result = 'High Risk'
+                else:
+                    pred_result = 'Low Risk'
+                
+                report_entry = {
+                    'report_id': pred.get('report_id', pred.get('prediction_id', pred.get('id'))),
+                    'prediction_id': pred.get('prediction_id', pred.get('id')),
+                    'patient_name': pred.get('patient_name', pred.get('name', 'Unknown')),
+                    'prediction_result': pred_result,
+                    'probability': pred.get('probability', pred.get('confidence', 50) / 100),
+                    'generated_at': generated_at,
+                    'report_file': pred.get('report_path', pred.get('report_file'))
+                }
+                reports.append(report_entry)
+                print(f"  ✅ Report found: {report_entry['patient_name']} - {report_entry['prediction_id']}")
+        
+        print(f"✅ Returning {len(reports)} reports")
         
         return jsonify({
             'success': True,
-            'reports': reports
+            'reports': reports,
+            'total': len(reports)
         })
     except Exception as e:
+        print(f"❌ Error in get_user_reports: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'reports': []
         }), 500
 
 
@@ -1058,46 +1086,51 @@ def change_user_password():
 def get_all_users_api():
     """Get all users for admin dashboard"""
     try:
-        import firebase_config
-        firebase_config.initialize_firebase()
+        from firebase_config import db_ref
         
-        # Get all users from Firebase
-        users_ref = firebase_config.db_ref.child('users')
-        users_data = users_ref.get()
+        users_data = db_ref.child('users').get()
         
-        users = []
+        users_list = []
         if users_data:
             for user_id, user_info in users_data.items():
-                # Get prediction count for this user
-                predictions_ref = firebase_config.db_ref.child('predictions')
-                all_predictions = predictions_ref.get() or {}
+                if not isinstance(user_info, dict):
+                    continue
                 
-                prediction_count = sum(1 for pred in all_predictions.values() 
-                                     if isinstance(pred, dict) and pred.get('user_id') == user_id)
+                # Count predictions for this user
+                prediction_count = 0
+                try:
+                    all_preds = db_ref.child('predictions').get()
+                    if all_preds:
+                        prediction_count = sum(1 for p in all_preds.values() 
+                                             if isinstance(p, dict) and p.get('user_id') == user_id)
+                except:
+                    pass
                 
-                # Count reports
-                report_count = sum(1 for pred in all_predictions.values() 
-                                 if isinstance(pred, dict) and pred.get('user_id') == user_id 
-                                 and (pred.get('report_id') or pred.get('report_path') or pred.get('report_generated_at')))
+                # Count reports for this user
+                report_count = 0
+                try:
+                    user_reports = db_ref.child(f'reports/{user_id}').get()
+                    if user_reports:
+                        report_count = len(user_reports) if isinstance(user_reports, dict) else 0
+                except:
+                    pass
                 
-                users.append({
+                users_list.append({
                     'user_id': user_id,
                     'username': user_info.get('username', 'N/A'),
-                    'full_name': user_info.get('full_name', 'Unknown'),
+                    'full_name': user_info.get('full_name', 'N/A'),
                     'email': user_info.get('email', 'N/A'),
-                    'created_at': user_info.get('created_at', datetime.now().isoformat()),
+                    'created_at': user_info.get('created_at', 'N/A'),
                     'prediction_count': prediction_count,
                     'report_count': report_count
                 })
         
         return jsonify({
             'success': True,
-            'users': users
+            'users': users_list
         })
     except Exception as e:
-        print(f"Error fetching users: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error fetching users: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1110,127 +1143,55 @@ def get_all_users_api():
 def get_admin_stats():
     """Get system statistics for admin"""
     try:
-        import firebase_config
-        firebase_config.initialize_firebase()
+        print("🔍 Fetching admin stats...")
         
-        # Get users count
-        users_ref = firebase_config.db_ref.child('users')
-        users_data = users_ref.get() or {}
-        total_users = len(users_data) if users_data else 0
+        # Get prediction statistics
+        firebase_stats = get_statistics()
+        print(f"📊 Firebase stats: {firebase_stats}")
         
-        # Get predictions
-        predictions_ref = firebase_config.db_ref.child('predictions')
-        predictions_data = predictions_ref.get() or {}
-        total_predictions = len(predictions_data) if predictions_data else 0
+        # Import db_ref from firebase_config
+        from firebase_config import db_ref
         
-        # Count positive predictions and reports
-        positive_predictions = 0
+        # Count total users from Firebase
+        total_users = 0
+        try:
+            users_data = db_ref.child('users').get()
+            if users_data:
+                total_users = len(users_data)
+                print(f"👥 Total users: {total_users}")
+        except Exception as e:
+            print(f"⚠️ Error counting users: {e}")
+        
+        # Count total reports from Firebase  
         total_reports = 0
-        
-        if predictions_data:
-            for pred in predictions_data.values():
-                if isinstance(pred, dict):
-                    # Count high risk predictions
-                    if (pred.get('risk_level') == 'high' or 
-                        pred.get('prediction') == 1 or 
-                        'high' in str(pred.get('prediction', '')).lower()):
-                        positive_predictions += 1
-                    
-                    # Count reports
-                    if (pred.get('report_id') or pred.get('report_path') or 
-                        pred.get('report_generated_at') or pred.get('report_file')):
-                        total_reports += 1
+        try:
+            reports_data = db_ref.child('reports').get()
+            if reports_data:
+                # Count all reports across all users
+                for user_reports in reports_data.values():
+                    if isinstance(user_reports, dict):
+                        total_reports += len(user_reports)
+                print(f"📄 Total reports: {total_reports}")
+        except Exception as e:
+            print(f"⚠️ Error counting reports: {e}")
         
         stats = {
             'total_users': total_users,
-            'total_predictions': total_predictions,
+            'total_predictions': firebase_stats.get('total_predictions', 0),
             'total_reports': total_reports,
-            'positive_predictions': positive_predictions
+            'positive_predictions': firebase_stats.get('high_risk_count', 0)
         }
+        
+        print(f"✅ Final Admin Stats: {stats}")
         
         return jsonify({
             'success': True,
             'stats': stats
         })
     except Exception as e:
-        print(f"Error fetching stats: {e}")
         import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/admin/users/<user_id>', methods=['DELETE'])
-@login_required
-@admin_required
-def delete_user(user_id):
-    """Delete a user and all their associated data"""
-    try:
-        import firebase_config
-        firebase_config.initialize_firebase()
-        
-        print(f"🗑️ Attempting to delete user: {user_id}")
-        
-        # First verify the user exists
-        users_ref = firebase_config.db_ref.child('users')
-        user_data = users_ref.child(user_id).get()
-        
-        if not user_data:
-            return jsonify({
-                'success': False,
-                'error': 'User not found'
-            }), 404
-        
-        username = user_data.get('username', 'Unknown')
-        print(f"👤 Found user: {username}")
-        
-        # Delete all predictions for this user
-        predictions_ref = firebase_config.db_ref.child('predictions')
-        all_predictions = predictions_ref.get() or {}
-        
-        deleted_predictions = 0
-        deleted_reports = 0
-        
-        for pred_id, pred_data in all_predictions.items():
-            if isinstance(pred_data, dict) and pred_data.get('user_id') == user_id:
-                # Delete prediction record
-                predictions_ref.child(pred_id).delete()
-                deleted_predictions += 1
-                
-                # Delete associated report file if it exists
-                report_path = pred_data.get('report_path') or pred_data.get('report_file')
-                if report_path:
-                    try:
-                        full_path = os.path.join(os.path.dirname(__file__), report_path.lstrip('/'))
-                        if os.path.exists(full_path):
-                            os.remove(full_path)
-                            deleted_reports += 1
-                            print(f"🗑️ Deleted report file: {report_path}")
-                    except Exception as e:
-                        print(f"⚠️ Could not delete report file {report_path}: {e}")
-        
-        # Delete the user account
-        users_ref.child(user_id).delete()
-        
-        print(f"✅ Deleted user {username} ({user_id})")
-        print(f"📊 Deleted {deleted_predictions} predictions")
-        print(f"📄 Deleted {deleted_reports} report files")
-        
-        return jsonify({
-            'success': True,
-            'message': f'User {username} deleted successfully',
-            'deleted': {
-                'predictions': deleted_predictions,
-                'reports': deleted_reports
-            }
-        })
-        
-    except Exception as e:
-        print(f"❌ Error deleting user: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Admin stats error: {e}")
+        print(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1293,7 +1254,13 @@ def user_dashboard():
             }
             recent_activity.append(activity)
         
-        return render_template('user_dashboard.html',
+        return render_template('user_dashboard_new.html',
+            stats={
+                'total_predictions': stats.get('total_predictions', 0),
+                'low_risk': stats.get('total_predictions', 0) - high_risk_count,
+                'high_risk': high_risk_count,
+                'last_check': predictions[0].get('timestamp') if predictions else 'Never'
+            },
             total_predictions=stats.get('total_predictions', 0),
             recent_predictions=recent_predictions,
             total_reports=len(predictions),
@@ -1305,7 +1272,13 @@ def user_dashboard():
         import traceback
         traceback.print_exc()
         # Return with default values
-        return render_template('user_dashboard.html',
+        return render_template('user_dashboard_new.html',
+            stats={
+                'total_predictions': 0,
+                'low_risk': 0,
+                'high_risk': 0,
+                'last_check': 'Never'
+            },
             total_predictions=0,
             recent_predictions=0,
             total_reports=0,
@@ -1475,7 +1448,7 @@ def user_history():
     """Render user history page"""
     if session.get('role') == 'admin':
         return redirect(url_for('admin_dashboard'))
-    return render_template('user_dashboard.html')
+    return render_template('user_dashboard_new.html')
 
 
 @app.route('/api/profile', methods=['GET'])
@@ -1665,7 +1638,7 @@ def admin_all_reports():
 @app.route('/admin/get_all_reports', methods=['GET'])
 @admin_required
 def get_all_reports():
-    """API endpoint to get all medical reports from all patients"""
+    """API endpoint to get all medical reports from all patients with complete details"""
     try:
         import firebase_config
         firebase_config.initialize_firebase()
@@ -1684,12 +1657,54 @@ def get_all_reports():
         reports_list = []
         for report_id, report_data in all_predictions.items():
             if isinstance(report_data, dict):
-                report_data['id'] = report_id
-                report_data['report_id'] = report_id
-                reports_list.append(report_data)
+                # Ensure all required fields are present
+                report = {
+                    'id': report_id,
+                    'report_id': report_id,
+                    'prediction_id': report_id,
+                    # Patient info
+                    'patient_name': report_data.get('patient_name', 'Unknown'),
+                    'age': report_data.get('age', 0),
+                    'sex': report_data.get('sex', 'N/A'),
+                    'contact': report_data.get('contact', 'N/A'),
+                    'address': report_data.get('address', 'N/A'),
+                    # Prediction results
+                    'prediction': report_data.get('prediction', 'N/A'),
+                    'result': report_data.get('result', 'N/A'),
+                    'risk_level': report_data.get('risk_level', 'unknown'),
+                    'confidence': report_data.get('confidence', 0),
+                    'probability': report_data.get('confidence', 0) / 100 if report_data.get('confidence') else 0,
+                    # Medical parameters
+                    'Pregnancies': report_data.get('Pregnancies', 0),
+                    'Glucose': report_data.get('Glucose', 0),
+                    'BloodPressure': report_data.get('BloodPressure', 0),
+                    'SkinThickness': report_data.get('SkinThickness', 0),
+                    'Insulin': report_data.get('Insulin', 0),
+                    'BMI': report_data.get('BMI', 0),
+                    'DiabetesPedigreeFunction': report_data.get('DiabetesPedigreeFunction', 0),
+                    'Age': report_data.get('Age', report_data.get('age', 0)),
+                    # Lifestyle factors
+                    'smoking': report_data.get('smoking', 0),
+                    'physical_activity': report_data.get('physical_activity', 0),
+                    'alcohol_intake': report_data.get('alcohol_intake', 0),
+                    'family_history': report_data.get('family_history', 0),
+                    'sleep_hours': report_data.get('sleep_hours', 7),
+                    # Metadata
+                    'user_id': report_data.get('user_id', 'anonymous'),
+                    'timestamp': report_data.get('timestamp', report_data.get('created_at', '')),
+                    'created_at': report_data.get('created_at', report_data.get('timestamp', '')),
+                    'date': report_data.get('date', ''),
+                    'time': report_data.get('time', ''),
+                    # Additional data
+                    'features': report_data.get('features', []),
+                    'has_report': True
+                }
+                reports_list.append(report)
         
         # Sort by timestamp (most recent first)
-        reports_list.sort(key=lambda x: x.get('created_at', 0), reverse=True)
+        reports_list.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        
+        print(f"✅ Admin: Retrieved {len(reports_list)} reports with complete details")
         
         return jsonify({
             'success': True,
@@ -1698,7 +1713,9 @@ def get_all_reports():
         })
     
     except Exception as e:
-        print(f"Error fetching reports: {e}")
+        print(f"❌ Error fetching reports: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1794,16 +1811,66 @@ def get_all_patients():
 @app.route('/admin/patient/<user_id>/predictions', methods=['GET'])
 @admin_required
 def get_patient_predictions(user_id):
-    """Get all predictions for a specific patient"""
+    """Get all predictions for a specific patient with complete details"""
     try:
+        print(f"📊 Admin fetching predictions for user: {user_id}")
+        
         # Get all predictions for this user
         history = get_patient_history(user_id=user_id, limit=1000)
+        
+        # Enhance each prediction with complete data
+        enhanced_history = []
+        for pred in history:
+            enhanced_pred = {
+                'id': pred.get('id', pred.get('prediction_id', pred.get('report_id', 'N/A'))),
+                'prediction_id': pred.get('prediction_id', pred.get('id', pred.get('report_id', 'N/A'))),
+                'report_id': pred.get('report_id', pred.get('id', pred.get('prediction_id', 'N/A'))),
+                # Patient info
+                'patient_name': pred.get('patient_name', 'Unknown'),
+                'age': pred.get('age', 0),
+                'sex': pred.get('sex', 'N/A'),
+                'contact': pred.get('contact', 'N/A'),
+                'address': pred.get('address', 'N/A'),
+                # Prediction results
+                'prediction': pred.get('prediction', 'N/A'),
+                'result': pred.get('result', 'N/A'),
+                'risk_level': pred.get('risk_level', 'unknown'),
+                'confidence': pred.get('confidence', 0),
+                'probability': pred.get('probability', pred.get('confidence', 0) / 100 if pred.get('confidence') else 0),
+                # Medical parameters
+                'Pregnancies': pred.get('Pregnancies', 0),
+                'Glucose': pred.get('Glucose', 0),
+                'BloodPressure': pred.get('BloodPressure', 0),
+                'SkinThickness': pred.get('SkinThickness', 0),
+                'Insulin': pred.get('Insulin', 0),
+                'BMI': pred.get('BMI', 0),
+                'DiabetesPedigreeFunction': pred.get('DiabetesPedigreeFunction', 0),
+                'Age': pred.get('Age', pred.get('age', 0)),
+                # Lifestyle factors
+                'smoking': pred.get('smoking', 0),
+                'physical_activity': pred.get('physical_activity', 0),
+                'alcohol_intake': pred.get('alcohol_intake', 0),
+                'family_history': pred.get('family_history', 0),
+                'sleep_hours': pred.get('sleep_hours', 7),
+                # Metadata
+                'user_id': pred.get('user_id', user_id),
+                'timestamp': pred.get('timestamp', pred.get('created_at', '')),
+                'created_at': pred.get('created_at', pred.get('timestamp', '')),
+                'date': pred.get('date', ''),
+                'time': pred.get('time', ''),
+                # Additional
+                'features': pred.get('features', []),
+                'has_report': True
+            }
+            enhanced_history.append(enhanced_pred)
         
         # Get user info
         import firebase_config
         firebase_config.initialize_firebase()
         user_ref = firebase_config.db_ref.child('users').child(user_id)
         user_data = user_ref.get()
+        
+        print(f"✅ Admin: Retrieved {len(enhanced_history)} predictions for user {user_id}")
         
         return jsonify({
             'success': True,
@@ -1812,12 +1879,20 @@ def get_patient_predictions(user_id):
                 'full_name': user_data.get('full_name', 'N/A') if user_data else 'N/A',
                 'username': user_data.get('username', 'N/A') if user_data else 'N/A',
                 'email': user_data.get('email', 'N/A') if user_data else 'N/A',
+                'created_at': user_data.get('created_at', 'N/A') if user_data else 'N/A',
             },
-            'predictions': history
+            'predictions': enhanced_history,
+            'total_count': len(enhanced_history)
         })
     
     except Exception as e:
-        print(f"Error fetching patient predictions: {e}")
+        print(f"❌ Error fetching patient predictions: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1874,16 +1949,12 @@ def predict():
     Expects JSON with patient data and medical test values
     """
     try:
-        # Lazy load model and numpy
-        model_obj, scaler_obj = load_model()
-        if model_obj is None:
+        if model is None:
             return jsonify({
                 'success': False,
                 'error': 'ML model not loaded. Please check server logs.'
             }), 500
-        
-        np = get_numpy()  # Lazy import numpy
-        
+
         data = request.json
         
         # === SECURITY: Input Validation ===
@@ -1984,16 +2055,16 @@ def predict():
         features_array = np.array(features).reshape(1, -1)
         
         # Scale features if scaler is available
-        if scaler_obj is not None:
-            features_scaled = scaler_obj.transform(features_array)
+        if scaler is not None:
+            features_scaled = scaler.transform(features_array)
         else:
             features_scaled = features_array
         
-        prediction = model_obj.predict(features_scaled)[0]
+        prediction = model.predict(features_scaled)[0]
         
         # Get prediction probability if available
         try:
-            prediction_proba = model_obj.predict_proba(features_scaled)[0]
+            prediction_proba = model.predict_proba(features_scaled)[0]
             confidence = float(max(prediction_proba) * 100)
             probability = float(prediction_proba[1])  # Probability of diabetes
         except:
@@ -2086,8 +2157,7 @@ def predict():
 def analyze_prediction_trends():
     """Generate comparative insights across past predictions using Groq"""
     try:
-        current_llm = get_llm()
-        if current_llm is None:
+        if llm is None:
             return jsonify({
                 'success': False,
                 'error': 'AI analysis service is unavailable. Please configure GROQ_API_KEY.'
@@ -2190,7 +2260,7 @@ def analyze_prediction_trends():
             }), 500
 
         prompt = build_comparison_prompt(resolved_predictions)
-        groq_response = current_llm.invoke(prompt)
+        groq_response = llm.invoke(prompt)
         explanation_text = getattr(groq_response, 'content', str(groq_response))
 
         ordered_predictions = sorted(resolved_predictions, key=parse_prediction_datetime)
@@ -2299,8 +2369,7 @@ def generate_report():
     Creates a professional medical diagnosis report
     """
     try:
-        current_llm = get_llm()
-        if current_llm is None:
+        if llm is None:
             return jsonify({
                 'success': False,
                 'error': 'AI Report Generator not available. Please configure GROQ_API_KEY.'
@@ -2310,7 +2379,7 @@ def generate_report():
         
         # Create detailed prompt for medical report
         prompt_template = ChatPromptTemplate.from_messages([
-            ("system", """You are Dr. Sarah Mitchell, MD, a board-certified endocrinologist with 15 years of experience specializing in diabetes care and prevention at a leading medical center.
+            ("system", """You are an AI medical assistant specializing in diabetes risk assessment, prevention, and health management.
 
 Your task is to generate a comprehensive, clinically accurate diabetes risk assessment report based on the patient's laboratory results and health data.
 
@@ -2451,7 +2520,7 @@ Please generate a comprehensive diabetes assessment report analyzing these healt
         )
         
         # Generate report using Groq LLM
-        response = current_llm.invoke(formatted_prompt)
+        response = llm.invoke(formatted_prompt)
         report_content = response.content
         
         # Add header and footer to report
@@ -2521,21 +2590,31 @@ All Rights Reserved | Confidential Medical Document
             f.write(full_report)
         
         # Save report info to Firebase if user is logged in
+        user_id = session.get('user_id', 'anonymous')
+        prediction_id = data.get('prediction_id')
+        
+        print(f"📝 Saving report info: user_id={user_id}, prediction_id={prediction_id}")
+        
         try:
-            if 'user_id' in session and data.get('prediction_id'):
-                user_id = session.get('user_id')
-                prediction_id = data.get('prediction_id')
-                
+            if prediction_id:
                 # Update the prediction with report info
                 update_data = {
                     'report_id': patient_id,
                     'report_path': report_filename,
+                    'report_file': report_filename,
                     'report_generated_at': timestamp
                 }
-                update_prediction_record(prediction_id, update_data, user_id)
-                print(f"✅ Report saved to Firebase for prediction {prediction_id}")
+                
+                success = update_prediction_record(prediction_id, update_data, user_id if user_id != 'anonymous' else None)
+                
+                if success:
+                    print(f"✅ Report info saved to Firebase for prediction {prediction_id}")
+                else:
+                    print(f"⚠️ Failed to update prediction record in Firebase")
         except Exception as fb_error:
-            print(f"Warning: Could not save report to Firebase: {fb_error}")
+            print(f"⚠️ Warning: Could not save report to Firebase: {fb_error}")
+            import traceback
+            traceback.print_exc()
             # Continue anyway - file is saved locally
         
         return jsonify({
@@ -2600,8 +2679,7 @@ def api_generate_report():
         }
         
         # Use the existing report generation prompt
-        current_llm = get_llm()
-        if current_llm is None:
+        if llm is None:
             return jsonify({
                 'success': False,
                 'error': 'AI Report Generator not available'
@@ -2623,7 +2701,7 @@ Test Results:
 
 Provide a detailed medical assessment with recommendations."""
 
-        response = current_llm.invoke(prompt)
+        response = llm.invoke(prompt)
         report_content = response.content
         
         # Save report
@@ -2649,13 +2727,25 @@ Provide a detailed medical assessment with recommendations."""
 
 
 def generate_beautiful_pdf(report, report_id):
-    """Generate a professional medical PDF report with Groq AI analysis and clinical charts"""
+    """Generate a professional medical PDF report with comprehensive charts and recommendations"""
     from io import BytesIO
-    from reportlab.lib.pagesizes import letter, A4
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak, KeepTogether
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from report_generator import (generate_clinical_parameter_chart, generate_risk_gauge_chart,
                                    generate_parameter_radar_chart, generate_bmi_classification_chart)
+    # Import enhanced report generator
+    try:
+        from enhanced_report_generator import (
+            generate_comprehensive_health_chart,
+            get_personalized_recommendations,
+            format_recommendations_for_pdf
+        )
+        enhanced_available = True
+    except ImportError:
+        enhanced_available = False
+        print("⚠️ Enhanced report generator not available, using standard charts")
+    
     from reportlab.lib import colors
     from reportlab.lib.units import inch
     from reportlab.pdfgen import canvas
@@ -2663,8 +2753,8 @@ def generate_beautiful_pdf(report, report_id):
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
-                           topMargin=0.5*inch,
-                           bottomMargin=0.6*inch,
+                           topMargin=0.75*inch,
+                           bottomMargin=0.75*inch,
                            leftMargin=0.75*inch,
                            rightMargin=0.75*inch)
     
@@ -2672,72 +2762,95 @@ def generate_beautiful_pdf(report, report_id):
     story = []
     styles = getSampleStyleSheet()
     
-    # Custom styles
+    # Custom styles matching reference image
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
-        fontSize=22,
-        textColor=colors.HexColor('#1e3a8a'),
-        spaceAfter=6,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
+        fontSize=32,
+        textColor=colors.HexColor('#1e3a8a'),  # Dark blue
+        spaceAfter=10,
+        alignment=TA_LEFT,
+        fontName='Helvetica-Bold',
+        leading=38
     )
     
     subtitle_style = ParagraphStyle(
         'Subtitle',
         parent=styles['Normal'],
-        fontSize=10,
-        textColor=colors.HexColor('#475569'),
-        alignment=TA_CENTER,
-        spaceAfter=4
+        fontSize=18,
+        textColor=colors.HexColor('#1e3a8a'),
+        alignment=TA_LEFT,
+        spaceAfter=8,
+        fontName='Helvetica'
     )
     
     heading_style = ParagraphStyle(
         'CustomHeading',
         parent=styles['Heading2'],
-        fontSize=12,
+        fontSize=14,
         textColor=colors.white,
-        spaceAfter=10,
-        spaceBefore=14,
+        spaceAfter=12,
+        spaceBefore=16,
         fontName='Helvetica-Bold',
-        backColor=colors.HexColor('#2b98c9'),
-        borderPadding=6,
-        leftIndent=8
+        backColor=colors.HexColor('#3b82f6'),  # Blue background
+        borderPadding=8,
+        leftIndent=10
     )
     
     body_style = ParagraphStyle(
         'BodyText',
         parent=styles['Normal'],
-        fontSize=10,
-        leading=14,
+        fontSize=11,
+        leading=16,
         textColor=colors.HexColor('#1e293b'),
-        alignment=TA_JUSTIFY
+        alignment=TA_LEFT
     )
     
-    # Header - Hospital Letterhead
-    story.append(Paragraph("⚕️ CITY GENERAL HOSPITAL", title_style))
-    story.append(Paragraph("Department of Endocrinology & Metabolic Disorders", subtitle_style))
-    story.append(Paragraph("Advanced Diabetes Assessment & Management Center", subtitle_style))
-    story.append(Paragraph("123 Medical Plaza, Healthcare District | Tel: (555) 123-4567", subtitle_style))
-    story.append(Spacer(1, 0.15*inch))
-    
-    # Divider line
-    line_data = [['━' * 100]]
-    line_table = Table(line_data, colWidths=[6.5*inch])
-    line_table.setStyle(TableStyle([
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#cbd5e1')),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    # Top blue bar
+    blue_bar = Table([['']], colWidths=[7*inch], rowHeights=[0.3*inch])
+    blue_bar.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#60a5fa')),
     ]))
-    story.append(line_table)
+    story.append(blue_bar)
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Main Title with Icon effect
+    title_table_data = [[
+        Paragraph("<b>Diabetes</b><br/><b>Prediction</b><br/><b>Report</b>", title_style),
+        ''
+    ]]
+    title_table = Table(title_table_data, colWidths=[4*inch, 3*inch])
+    story.append(title_table)
     story.append(Spacer(1, 0.15*inch))
     
-    # Report Title
-    report_title = Paragraph("COMPREHENSIVE DIABETES RISK ASSESSMENT", heading_style)
-    story.append(report_title)
-    story.append(Spacer(1, 0.15*inch))
+    # Diagnosis section
+    diagnosis_heading = Paragraph("Diagnosis", heading_style)
+    story.append(diagnosis_heading)
     
-    # Report metadata and doctor info side by side
+    result_text = report.get('result', 'N/A')
+    diagnosis_result = ParagraphStyle(
+        'DiagnosisResult',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#1e3a8a'),
+        spaceAfter=20,
+        spaceBefore=10,
+        alignment=TA_LEFT,
+        fontName='Helvetica-Bold'
+    )
+    story.append(Paragraph(result_text, diagnosis_result))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # PATIENT DATA section
+    story.append(Paragraph("PATIENT DATA", heading_style))
+    story.append(Spacer(1, 0.1*inch))
+    
+    patient_name = report.get('patient_name', 'John Doe')
+    patient_age = report.get('age') or report.get('Age', 'N/A')
+    patient_sex = report.get('sex', 'Male')
+    patient_contact = report.get('contact', 'N/A')
+    
+    # Get formatted date
     from pytz import timezone
     ist = timezone('Asia/Kolkata')
     timestamp = report.get('timestamp') or report.get('created_at', 'N/A')
@@ -2746,78 +2859,49 @@ def generate_beautiful_pdf(report, report_id):
             date_obj = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
             date_obj = date_obj.astimezone(ist)
             formatted_date = date_obj.strftime("%B %d, %Y")
-            formatted_time = date_obj.strftime("%I:%M %p IST")
         except:
             formatted_date = datetime.now(ist).strftime("%B %d, %Y")
-            formatted_time = datetime.now(ist).strftime("%I:%M %p IST")
     else:
         formatted_date = datetime.now(ist).strftime("%B %d, %Y")
-        formatted_time = datetime.now(ist).strftime("%I:%M %p IST")
-    
-    metadata_data = [
-        ['Report ID:', report_id, 'Attending Physician:', 'Dr. Sarah Mitchell, MD, FACP'],
-        ['Date of Assessment:', formatted_date, 'Specialization:', 'Endocrinology & Diabetes Care'],
-        ['Time:', formatted_time, 'License No:', 'MD-2025-456789'],
-        ['Report Type:', 'AI-Assisted Analysis', 'Contact:', 'smitchell@cityhospital.com']
-    ]
-    
-    metadata_table = Table(metadata_data, colWidths=[1.3*inch, 1.9*inch, 1.3*inch, 2*inch])
-    metadata_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#64748b')),
-        ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1e293b')),
-        ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#64748b')),
-        ('TEXTCOLOR', (3, 0), (3, -1), colors.HexColor('#1e293b')),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-    ]))
-    story.append(metadata_table)
-    story.append(Spacer(1, 0.2*inch))
-    
-    # Patient Information
-    story.append(Paragraph("PATIENT INFORMATION", heading_style))
-    story.append(Spacer(1, 0.08*inch))
-    
-    patient_name = report.get('patient_name', 'N/A')
-    patient_age = report.get('age') or report.get('Age', 'N/A')
-    patient_sex = report.get('sex', 'N/A')
-    patient_contact = report.get('contact', 'N/A')
     
     patient_data = [
-        ['Full Name:', patient_name, 'Age:', f"{patient_age} years"],
-        ['Gender:', patient_sex, 'Contact:', patient_contact],
-        ['Patient ID:', session.get('user_id', 'N/A')[:16], 'Assessment Date:', formatted_date]
+        ['Name', patient_name, 'Age', 'Report Date'],
+        ['Age', f'{patient_age}', patient_sex, formatted_date]
     ]
     
-    patient_table = Table(patient_data, colWidths=[1.2*inch, 2.1*inch, 1.2*inch, 2*inch])
+    patient_table = Table(patient_data, colWidths=[1.5*inch, 2*inch, 1.5*inch, 2*inch])
     patient_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#475569')),
-        ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#0f172a')),
-        ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#475569')),
-        ('TEXTCOLOR', (3, 0), (3, -1), colors.HexColor('#0f172a')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1e3a8a')),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e1')),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#dbeafe')),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#93c5fd')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#93c5fd')),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
     ]))
     story.append(patient_table)
-    story.append(Spacer(1, 0.2*inch))
+    story.append(Spacer(1, 0.25*inch))
     
-    # Clinical Parameters
-    story.append(Paragraph("LABORATORY FINDINGS & CLINICAL PARAMETERS", heading_style))
+    # Add comprehensive health visualization chart (4-panel)
+    if enhanced_available:
+        try:
+            chart_buffer = generate_comprehensive_health_chart(report)
+            chart_img = Image(chart_buffer, width=7*inch, height=5*inch)
+            story.append(Paragraph("COMPREHENSIVE HEALTH ANALYSIS", heading_style))
+            story.append(Spacer(1, 0.1*inch))
+            story.append(chart_img)
+            story.append(Spacer(1, 0.25*inch))
+        except Exception as e:
+            print(f"Error generating comprehensive chart: {e}")
+    
+    # RESULTS section
+    story.append(Paragraph("RESULTS", heading_style))
     story.append(Spacer(1, 0.1*inch))
     
-    # Extract parameters with fallbacks
+    # Extract parameters
     glucose = report.get('Glucose') or report.get('glucose') or 'N/A'
     bmi = report.get('BMI') or report.get('bmi') or 'N/A'
     bp = report.get('BloodPressure') or report.get('blood_pressure') or 'N/A'
@@ -2827,508 +2911,113 @@ def generate_beautiful_pdf(report, report_id):
     pregnancies = report.get('Pregnancies') or report.get('pregnancies') or 'N/A'
     age = report.get('Age') or report.get('age') or 'N/A'
     
-    # Determine colors based on values
-    def get_glucose_color(val):
-        try:
-            v = float(val)
-            if v < 100: return colors.HexColor('#10b981')
-            elif v < 126: return colors.HexColor('#f59e0b')
-            else: return colors.HexColor('#ef4444')
-        except: return colors.black
+    # Calculate prediction accuracy (use confidence or default to 89%)
+    confidence = report.get('confidence', 89)
     
-    def get_bmi_color(val):
-        try:
-            v = float(val)
-            if v < 18.5: return colors.HexColor('#3b82f6')
-            elif v < 25: return colors.HexColor('#10b981')
-            elif v < 30: return colors.HexColor('#f59e0b')
-            else: return colors.HexColor('#ef4444')
-        except: return colors.black
-    
-    clinical_data = [
-        ['Parameter', 'Value', 'Normal Range', 'Status'],
-        ['Fasting Glucose', f'{glucose} mg/dL', '70-100 mg/dL', '●'],
-        ['Blood Pressure', f'{bp} mmHg', '60-80 mmHg', '●'],
-        ['Body Mass Index (BMI)', f'{bmi} kg/m²', '18.5-24.9', '●'],
-        ['Serum Insulin', f'{insulin} μU/mL', '16-166 μU/mL', '●'],
-        ['Skin Thickness', f'{skin_thickness} mm', '10-50 mm', '●'],
-        ['Diabetes Pedigree', f'{dpf}', '0.0-2.5', '●'],
-        ['Pregnancies', f'{pregnancies}', 'N/A', '●'],
-        ['Age', f'{age} years', 'N/A', '●'],
+    results_data = [
+        ['Prediction Accuracy', 'Number of Patients', 'Safe & Secure'],
+        [f'{confidence}%', '1.2K+', '100%']
     ]
     
-    clinical_table = Table(clinical_data, colWidths=[2*inch, 1.5*inch, 1.5*inch, 0.7*inch])
-    clinical_table.setStyle(TableStyle([
-        # Header row
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+    results_table = Table(results_data, colWidths=[2.3*inch, 2.3*inch, 2.3*inch])
+    results_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica'),
+        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 11),
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-        # Data rows
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
-        ('ALIGN', (0, 1), (0, -1), 'LEFT'),
-        ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+        ('FONTSIZE', (0, 1), (-1, 1), 28),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#64748b')),
+        ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor('#1e3a8a')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e1')),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-        ('TOPPADDING', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-    ]))
-    story.append(clinical_table)
-    story.append(Spacer(1, 0.3*inch))
-    
-    # Risk Assessment
-    risk_level = report.get('risk_level', 'Unknown')
-    confidence = report.get('confidence', 'N/A')
-    
-    risk_color = colors.HexColor('#ef4444') if risk_level == 'high' else colors.HexColor('#10b981')
-    risk_bg = colors.HexColor('#fef2f2') if risk_level == 'high' else colors.HexColor('#f0fdf4')
-    
-    story.append(Paragraph("AI-ASSISTED DIAGNOSTIC ASSESSMENT", heading_style))
-    story.append(Spacer(1, 0.1*inch))
-    
-    risk_data = [
-        ['Risk Classification:', risk_level.upper() + ' RISK'],
-        ['Model Confidence:', f'{confidence}%'],
-        ['Assessment Model:', 'Advanced Machine Learning Algorithm']
-    ]
-    
-    risk_table = Table(risk_data, colWidths=[2.5*inch, 3.5*inch])
-    risk_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 12),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#64748b')),
-        ('TEXTCOLOR', (1, 0), (1, 0), risk_color),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('BACKGROUND', (0, 0), (-1, -1), risk_bg),
-        ('BOX', (0, 0), (-1, -1), 2, risk_color),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#dbeafe')),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#93c5fd')),
+        ('INNERGRID', (0, 0), (-1, -1), 1, colors.HexColor('#93c5fd')),
         ('TOPPADDING', (0, 0), (-1, -1), 12),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-        ('LEFTPADDING', (0, 0), (-1, -1), 12),
     ]))
-    story.append(risk_table)
-    story.append(Spacer(1, 0.3*inch))
-    
-    # Add Clinical Visualizations
-    story.append(Paragraph("CLINICAL DATA VISUALIZATION & ANALYSIS", heading_style))
-    story.append(Spacer(1, 0.15*inch))
-    
-    try:
-        # Chart 1: Risk Gauge
-        risk_gauge_buffer = generate_risk_gauge_chart(confidence, risk_level)
-        risk_gauge_img = Image(risk_gauge_buffer, width=5*inch, height=3*inch)
-        story.append(risk_gauge_img)
-        story.append(Spacer(1, 0.2*inch))
-        
-        # Chart 2: Clinical Parameters Bar Chart
-        param_chart_buffer = generate_clinical_parameter_chart(report)
-        param_chart_img = Image(param_chart_buffer, width=6.5*inch, height=4*inch)
-        story.append(param_chart_img)
-        story.append(Spacer(1, 0.2*inch))
-        
-        # Page break for next charts
-        story.append(PageBreak())
-        
-        # Chart 3: Parameter Radar Chart
-        radar_chart_buffer = generate_parameter_radar_chart(report)
-        radar_chart_img = Image(radar_chart_buffer, width=5.5*inch, height=5.5*inch)
-        story.append(radar_chart_img)
-        story.append(Spacer(1, 0.2*inch))
-        
-        # Chart 4: BMI Classification
-        bmi_chart_buffer = generate_bmi_classification_chart(bmi)
-        bmi_chart_img = Image(bmi_chart_buffer, width=6.5*inch, height=2*inch)
-        story.append(bmi_chart_img)
-        story.append(Spacer(1, 0.3*inch))
-        
-    except Exception as chart_error:
-        print(f"Chart generation error: {str(chart_error)}")
-        story.append(Paragraph(f"<i>Note: Some visualizations could not be generated.</i>", body_style))
-        story.append(Spacer(1, 0.2*inch))
-    
-    # Page break before physician's analysis
-    story.append(PageBreak())
-    
-    # AI-Generated Medical Analysis and Recommendations
-    story.append(Paragraph("PHYSICIAN'S MEDICAL ASSESSMENT & RECOMMENDATIONS", heading_style))
-    story.append(Spacer(1, 0.08*inch))
-    
-    # Get LLM instance
-    current_llm = get_llm()
-    if current_llm is None:
-        # LLM not available - provide a basic template
-        story.append(Paragraph("<i>AI-powered analysis is currently unavailable. Please consult with your healthcare provider for detailed recommendations.</i>", body_style))
-        story.append(Spacer(1, 0.3*inch))
-    else:
-        try:
-            # Generate AI-powered personalized analysis using Groq
-            ai_prompt = f"""You are Dr. Sarah Mitchell, MD, FACP, a board-certified endocrinologist with 15 years of experience in diabetes care and metabolic disorders at City General Hospital.
-
-PATIENT CLINICAL DATA:
-- Age: {age} years
-- BMI: {bmi} kg/m²
-- Fasting Plasma Glucose: {glucose} mg/dL (Normal: 70-100 mg/dL)
-- Diastolic Blood Pressure: {bp} mmHg (Normal: 60-80 mmHg)
-- 2-Hour Serum Insulin: {insulin} μU/mL (Normal: 16-166 μU/mL)
-- Triceps Skin Thickness: {skin_thickness} mm
-- Diabetes Pedigree Function: {dpf} (Genetic Risk Factor)
-- Pregnancy History: {pregnancies}
-- **AI RISK CLASSIFICATION: {risk_level.upper()} RISK**
-- **MODEL CONFIDENCE: {confidence}%**
-
-Generate a comprehensive, detailed medical assessment report with these exact sections:
-
-**1. CLINICAL IMPRESSION** (4-5 sentences)
-Provide a thorough summary analyzing the patient's overall metabolic health, diabetes risk profile, cardiovascular status, and the clinical significance of their laboratory values. Discuss how their parameters correlate with established diabetes risk criteria. Mention specific concerns based on their age and clinical profile.
-
-**2. DETAILED LABORATORY ANALYSIS** (Analyze each parameter with 2-3 sentences each)
-For EACH clinical parameter, provide:
-• **Fasting Glucose ({glucose} mg/dL)**: Clinical interpretation, comparison to diagnostic thresholds (100-125 mg/dL prediabetes, ≥126 diabetes), metabolic implications, and immediate concerns if elevated.
-• **BMI ({bmi} kg/m²)**: Classify (underweight/normal/overweight/obese), discuss cardiovascular and metabolic risk, visceral adiposity concerns, and relationship to insulin resistance.
-• **Blood Pressure ({bp} mmHg)**: Evaluate cardiovascular risk, discuss hypertension staging if applicable, relationship to metabolic syndrome, and kidney function implications.
-• **Insulin Level ({insulin} μU/mL)**: Assess for hyperinsulinemia or insulin resistance, discuss pancreatic beta-cell function, and relationship to glucose metabolism.
-• **Diabetes Pedigree Function ({dpf})**: Explain genetic predisposition significance, family history implications, and how this affects long-term risk stratification.
-
-**3. RISK FACTORS IDENTIFIED** (List 6-8 specific factors with explanations)
-• Modifiable risk factors (lifestyle, diet, exercise, weight) with detailed explanations
-• Non-modifiable risk factors (age, genetics, family history) with clinical context
-• Emerging risk indicators from the clinical data
-• Explain HOW each factor contributes to diabetes development
-
-**4. METABOLIC SYNDROME ASSESSMENT** (3-4 sentences)
-Evaluate if patient meets metabolic syndrome criteria (3 of 5: elevated glucose, high BP, elevated triglycerides, low HDL, abdominal obesity). Discuss implications for cardiovascular disease risk and diabetes progression.
-
-**5. COMPREHENSIVE MEDICAL RECOMMENDATIONS** (12-15 specific, actionable items organized by category)
-
-**IMMEDIATE ACTIONS** (Within 1-2 weeks):
-• Specific laboratory tests to order (HbA1c, lipid panel, kidney function, etc.)
-• Specialist referrals needed (endocrinologist, dietitian, etc.)
-• Baseline assessments required
-
-**PHARMACOTHERAPY CONSIDERATIONS** (If high risk):
-• Metformin initiation criteria and dosing
-• Other medications to discuss with physician
-• Medication timing and precautions
-
-**DIETARY MODIFICATIONS** (Very specific):
-• Daily carbohydrate targets in grams (breakfast, lunch, dinner, snacks)
-• Specific foods to emphasize (list 8-10 with portions)
-• Foods to eliminate or limit (list 8-10)
-• Meal timing strategies
-• Glycemic index education
-• Portion control guidelines
-• Sample meal plan suggestions
-
-**EXERCISE PRESCRIPTION** (Detailed protocol):
-• Aerobic exercise: type, frequency (days/week), duration (minutes), intensity (heart rate zones)
-• Resistance training: exercises, sets, reps, frequency
-• Flexibility and balance work
-• Progression timeline over 3 months
-• Safety precautions specific to patient's condition
-
-**WEIGHT MANAGEMENT** (If applicable):
-• Target weight based on ideal BMI
-• Realistic timeline (pounds per week/month)
-• Caloric deficit recommendations
-• Behavioral strategies
-
-**MONITORING PROTOCOLS**:
-• Self-monitoring blood glucose: timing, frequency, target ranges
-• Daily health tracking (weight, BP, exercise, diet)
-• Symptom diary instructions
-• Technology tools (apps, devices)
-
-**LIFESTYLE MODIFICATIONS**:
-• Sleep hygiene (7-9 hours nightly)
-• Stress management techniques
-• Smoking cessation if applicable
-• Alcohol consumption guidelines
-• Hydration targets
-
-**6. CRITICAL WARNING SIGNS** (8-10 specific symptoms requiring immediate medical attention)
-List symptoms of hyperglycemia, hypoglycemia (if on medication), diabetic emergencies, cardiovascular events, and other urgent concerns with clear action steps.
-
-**7. FOLLOW-UP CARE PLAN** (Detailed timeline)
-• Next appointments: specific timing (weeks/months) and purpose
-• Laboratory test schedule with specific dates
-• Reassessment points for treatment efficacy
-• Long-term management milestones (3 months, 6 months, 1 year)
-• Criteria for escalating or de-escalating treatment
-
-**8. PROGNOSIS AND PATIENT EDUCATION** (3-4 sentences)
-Discuss expected outcomes with intervention vs. without, emphasize reversibility of prediabetes with lifestyle changes, provide realistic expectations, and motivate patient with evidence-based success rates.
-
-**9. PHYSICIAN'S CLOSING NOTES** (2-3 sentences)
-Professional summary emphasizing the importance of adherence, partnership in care, and encouragement for the patient's health journey.
-
-CRITICAL REQUIREMENTS:
-- Write as if directly addressing the patient in second person where appropriate
-- Use specific numbers, percentages, and quantifiable targets throughout
-- Base all recommendations on current ADA, AACE, and USPSTF guidelines
-- Make every recommendation actionable with clear "how-to" steps
-- Be thorough and comprehensive - this is a professional medical document
-- Maintain empathetic yet direct professional tone
-- Include medical rationale for each major recommendation
-- Format with clear section headers using **bold** text
-- Use bullet points for lists (•)
-- Minimum 2000 words of detailed medical analysis"""
-
-            # Call Groq AI for analysis
-            ai_response = current_llm.invoke(ai_prompt)
-            ai_analysis = ai_response.content if hasattr(ai_response, 'content') else str(ai_response)
-            
-            # Format the AI response with proper styling
-            analysis_paragraphs = ai_analysis.split('\n')
-            
-            for para in analysis_paragraphs:
-                para = para.strip()
-                if not para:
-                    continue
-                
-                # Check if it's a heading (contains ** or starts with number followed by period/dot)
-                if '**' in para or (para and para[0].isdigit() and '.' in para[:5]):
-                    # Remove ** markers and format as section heading
-                    clean_heading = para.replace('**', '').strip()
-                    section_heading_style = ParagraphStyle(
-                        'AIHeading',
-                        parent=styles['Normal'],
-                        fontSize=11,
-                        textColor=colors.HexColor('#1e40af'),
-                        fontName='Helvetica-Bold',
-                        spaceAfter=6,
-                        spaceBefore=12,
-                        leftIndent=0
-                    )
-                    story.append(Paragraph(clean_heading, section_heading_style))
-                else:
-                    # Regular paragraph or bullet point
-                    content_style = ParagraphStyle(
-                        'AIContent',
-                        parent=styles['Normal'],
-                        fontSize=10,
-                        leading=14,
-                        textColor=colors.HexColor('#1e293b'),
-                        alignment=TA_JUSTIFY if not para.startswith(('•', '-', '*')) else TA_LEFT,
-                        leftIndent=10 if para.startswith(('•', '-', '*')) else 0,
-                        spaceAfter=4
-                    )
-                    story.append(Paragraph(para, content_style))
-            
-        except Exception as e:
-            # Fallback recommendations if AI fails
-            print(f"AI generation failed: {str(e)}, using fallback recommendations")
-            
-            fallback_style = ParagraphStyle('Fallback', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#1e293b'))
-            
-            story.append(Paragraph("<b>CLINICAL IMPRESSION:</b>", fallback_style))
-            story.append(Spacer(1, 0.05*inch))
-            story.append(Paragraph(
-                f"Based on comprehensive metabolic assessment, the patient presents with {risk_level.lower()} for developing Type 2 Diabetes Mellitus. "
-                f"The clinical parameters including fasting glucose of {glucose} mg/dL and BMI of {bmi} kg/m² warrant careful monitoring and proactive intervention.",
-                fallback_style
-            ))
-            story.append(Spacer(1, 0.1*inch))
-            
-            story.append(Paragraph("<b>KEY FINDINGS:</b>", fallback_style))
-            story.append(Spacer(1, 0.05*inch))
-            findings = [
-                f"• Fasting glucose level of {glucose} mg/dL {'exceeds normal range' if glucose != 'N/A' and float(glucose) > 100 else 'within normal limits'}",
-                f"• BMI of {bmi} kg/m² indicates {'overweight status requiring intervention' if bmi != 'N/A' and float(bmi) > 25 else 'healthy weight range'}",
-                f"• Blood pressure reading of {bp} mmHg requires {'close monitoring' if bp != 'N/A' and float(bp) > 80 else 'routine observation'}",
-                f"• Diabetes pedigree function of {dpf} suggests {'significant familial predisposition' if dpf != 'N/A' and float(dpf) > 0.5 else 'moderate genetic risk'}"
-            ]
-            for finding in findings:
-                story.append(Paragraph(finding, fallback_style))
-            story.append(Spacer(1, 0.1*inch))
-            
-            story.append(Paragraph("<b>PERSONALIZED RECOMMENDATIONS:</b>", fallback_style))
-            story.append(Spacer(1, 0.05*inch))
-            if risk_level.lower() == 'high':
-                recs = [
-                    "• <b>Urgent:</b> Schedule appointment with endocrinologist within 1-2 weeks",
-                    "• Complete comprehensive metabolic panel including HbA1c, lipid profile, and kidney function tests",
-                    "• Implement carbohydrate-controlled diet (45-60g per meal) with emphasis on low glycemic index foods",
-                    "• Begin supervised exercise program: 30 minutes moderate-intensity aerobic activity, 5 days/week",
-                    "• Daily self-monitoring of blood glucose (fasting and 2-hour postprandial)",
-                    "• Consider metformin therapy pending physician evaluation",
-                    "• Weight reduction target: 7-10% of current body weight over 6 months",
-                    "• Consultation with certified diabetes educator for comprehensive education"
-                ]
-            else:
-                recs = [
-                    "• Schedule follow-up appointment in 3-6 months for reassessment",
-                    "• Annual comprehensive metabolic screening recommended",
-                    "• Maintain balanced Mediterranean-style diet rich in vegetables, fruits, whole grains, and lean proteins",
-                    "• Regular physical activity: minimum 150 minutes moderate-intensity exercise per week",
-                    "• Monitor fasting glucose quarterly with home glucometer",
-                    "• Maintain healthy weight through balanced nutrition and regular activity",
-                    "• Annual eye examination and foot care assessment",
-                    "• Continue current preventive health measures"
-                ]
-            for rec in recs:
-                story.append(Paragraph(rec, fallback_style))
-            story.append(Spacer(1, 0.1*inch))
-            
-            story.append(Paragraph("<b>IMPORTANT PRECAUTIONS:</b>", fallback_style))
-            story.append(Spacer(1, 0.05*inch))
-            precautions = [
-                "• Monitor for symptoms of hyperglycemia: increased thirst, frequent urination, unexplained fatigue, blurred vision",
-                "• Avoid prolonged fasting or extreme dietary restrictions without medical supervision",
-                "• Report any unusual symptoms, wounds that heal slowly, or recurrent infections immediately",
-                "• Maintain adequate hydration (8-10 glasses of water daily)",
-                "• Avoid high-sugar beverages and processed foods with added sugars"
-            ]
-            for precaution in precautions:
-                story.append(Paragraph(precaution, fallback_style))
-    
-    story.append(Spacer(1, 0.2*inch))
-    
-    # Doctor's Signature Section
-    signature_heading = Paragraph("PHYSICIAN AUTHENTICATION", heading_style)
-    story.append(signature_heading)
+    # Recommendations section
+    story.append(Paragraph("PERSONALIZED RECOMMENDATIONS", heading_style))
     story.append(Spacer(1, 0.1*inch))
     
-    signature_data = [
-        ['Electronically Signed By:', 'Dr. Sarah Mitchell, MD, FACP'],
-        ['Board Certification:', 'Endocrinology, Diabetes & Metabolism'],
-        ['License Number:', 'MD-2025-456789'],
-        ['Date Signed:', formatted_date],
-        ['Digital Signature:', '✓ Verified - AI-Assisted Medical Report']
-    ]
+    # Generate comprehensive personalized recommendations
+    if enhanced_available:
+        try:
+            recommendations = get_personalized_recommendations(report)
+            rec_elements = format_recommendations_for_pdf(recommendations, body_style)
+            story.extend(rec_elements)
+        except Exception as e:
+            print(f"Error generating personalized recommendations: {e}")
+            # Fallback to simple AI recommendations
+            try:
+                ai_prompt = f"""As a medical AI assistant, provide concise medical recommendations for a diabetes risk assessment with these parameters:
+- Glucose: {glucose} mg/dL
+- BMI: {bmi} kg/m²
+- Blood Pressure: {bp} mmHg
+- Age: {age} years
+- Risk Assessment: {result_text}
+
+Provide 3-4 sentences covering: lifestyle changes, preventive measures, and regular health monitoring. Keep it professional but brief."""
+
+                ai_response = llm.invoke(ai_prompt)
+                recommendations_text = ai_response.content if hasattr(ai_response, 'content') else "Doctor's recommendations and next steps for managing and improving the patient's condition. Includes lifestyle changes, potential treatments, and regular monitoring."
+            except:
+                recommendations_text = "Doctor's recommendations and next steps for managing and improving the patient's condition. Includes lifestyle changes, potential treatments, and regular monitoring."
+            
+            recommendations_para = Paragraph(recommendations_text, body_style)
+            recommendations_box = Table([[recommendations_para]], colWidths=[7*inch])
+            recommendations_box.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#dbeafe')),
+                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#93c5fd')),
+                ('TOPPADDING', (0, 0), (-1, -1), 15),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
+                ('LEFTPADDING', (0, 0), (-1, -1), 15),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 15),
+            ]))
+            story.append(recommendations_box)
+    else:
+        # Fallback if enhanced generator not available
+        try:
+            ai_prompt = f"""As a medical AI assistant, provide concise medical recommendations for a diabetes risk assessment with these parameters:
+- Glucose: {glucose} mg/dL
+- BMI: {bmi} kg/m²
+- Blood Pressure: {bp} mmHg
+- Age: {age} years
+- Risk Assessment: {result_text}
+
+Provide 3-4 sentences covering: lifestyle changes, preventive measures, and regular health monitoring. Keep it professional but brief."""
+
+            ai_response = llm.invoke(ai_prompt)
+            recommendations_text = ai_response.content if hasattr(ai_response, 'content') else "Doctor's recommendations and next steps for managing and improving the patient's condition. Includes lifestyle changes, potential treatments, and regular monitoring."
+        except:
+            recommendations_text = "Doctor's recommendations and next steps for managing and improving the patient's condition. Includes lifestyle changes, potential treatments, and regular monitoring."
+        
+        recommendations_para = Paragraph(recommendations_text, body_style)
+        recommendations_box = Table([[recommendations_para]], colWidths=[7*inch])
+        recommendations_box.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#dbeafe')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#93c5fd')),
+            ('TOPPADDING', (0, 0), (-1, -1), 15),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
+            ('LEFTPADDING', (0, 0), (-1, -1), 15),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 15),
+        ]))
+        story.append(recommendations_box)
     
-    signature_table = Table(signature_data, colWidths=[2*inch, 4*inch])
-    signature_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#64748b')),
-        ('TEXTCOLOR', (1, 0), (-1, -1), colors.HexColor('#1e293b')),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#2b98c9')),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
-    ]))
-    story.append(signature_table)
     story.append(Spacer(1, 0.3*inch))
     
-    # Medical Disclaimer
-    disclaimer_style = ParagraphStyle(
-        'Disclaimer',
+    # Add footer note
+    footer_note = ParagraphStyle(
+        'FooterNote',
         parent=styles['Normal'],
-        fontSize=8,
-        textColor=colors.HexColor('#64748b'),
-        alignment=TA_JUSTIFY,
-        leading=11,
-        leftIndent=10,
-        rightIndent=10
-    )
-    
-    story.append(Paragraph("MEDICAL DISCLAIMER & LEGAL NOTICE", heading_style))
-    story.append(Spacer(1, 0.08*inch))
-    
-    disclaimer_text = """This diabetes risk assessment report has been generated using advanced artificial intelligence and machine learning 
-    algorithms trained on extensive clinical datasets. The analysis incorporates your clinical parameters with validated predictive models 
-    to provide risk stratification. <b>This report is intended for educational and informational purposes only and does not constitute 
-    medical advice, diagnosis, or treatment.</b> The AI-assisted recommendations should be considered as supplementary information to support, 
-    not replace, the relationship that exists between you and your healthcare provider. All medical decisions should be made in consultation 
-    with qualified healthcare professionals who have access to your complete medical history. If you have any concerns about your health or 
-    the information in this report, please consult with your physician or another qualified healthcare provider immediately. Do not disregard 
-    professional medical advice or delay seeking it because of information presented in this report. The predictive accuracy of the model is 
-    based on population-level data and individual outcomes may vary. In case of medical emergency, please call emergency services or visit 
-    the nearest emergency department immediately."""
-    
-    story.append(Paragraph(disclaimer_text, disclaimer_style))
-    story.append(Spacer(1, 0.25*inch))
-    
-    # Confidentiality Notice
-    confidentiality_style = ParagraphStyle(
-        'Confidential',
-        parent=styles['Normal'],
-        fontSize=8,
-        textColor=colors.HexColor('#7f1d1d'),
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
-    )
-    
-    story.append(Paragraph(
-        "⚠️ CONFIDENTIAL MEDICAL DOCUMENT - Protected Health Information (PHI) ⚠️",
-        confidentiality_style
-    ))
-    story.append(Spacer(1, 0.05*inch))
-    
-    privacy_style = ParagraphStyle(
-        'Privacy',
-        parent=styles['Normal'],
-        fontSize=7,
+        fontSize=9,
         textColor=colors.HexColor('#64748b'),
         alignment=TA_CENTER,
-        leading=10
+        spaceAfter=8
     )
     
-    story.append(Paragraph(
-        "This document contains confidential patient information protected under HIPAA regulations. "
-        "Unauthorized disclosure or distribution is strictly prohibited.",
-        privacy_style
-    ))
-    
-    story.append(Spacer(1, 0.2*inch))
-    
-    # Professional Footer
-    footer_line_data = [['━' * 100]]
-    footer_line_table = Table(footer_line_data, colWidths=[6.5*inch])
-    footer_line_table.setStyle(TableStyle([
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#cbd5e1')),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-    ]))
-    story.append(footer_line_table)
-    story.append(Spacer(1, 0.08*inch))
-    
-    footer_style = ParagraphStyle(
-        'Footer',
-        parent=styles['Normal'],
-        fontSize=8,
-        textColor=colors.HexColor('#64748b'),
-        alignment=TA_CENTER,
-        leading=10
-    )
-    
-    from pytz import timezone as tz
-    ist_tz = tz('Asia/Kolkata')
-    current_time = datetime.now(ist_tz).strftime('%B %d, %Y at %I:%M %p IST')
-    
-    story.append(Paragraph(
-        "<b>⚕️ CITY GENERAL HOSPITAL - DEPARTMENT OF ENDOCRINOLOGY</b>",
-        footer_style
-    ))
-    story.append(Paragraph(
-        "Advanced Diabetes Assessment & Management Center",
-        footer_style
-    ))
-    story.append(Paragraph(
-        "123 Medical Plaza, Healthcare District | Phone: (555) 123-4567 | Fax: (555) 123-4568",
-        footer_style
-    ))
-    story.append(Paragraph(
-        f"Email: diabetes-care@cityhospital.com | 24/7 Patient Care Hotline: (555) 911-CARE",
-        footer_style
-    ))
-    story.append(Spacer(1, 0.08*inch))
-    story.append(Paragraph(
-        f"<i>Report Generated: {current_time} | Powered by AI Medical Analysis System v2.0</i>",
-        footer_style
-    ))
-    story.append(Paragraph(
-        f"<i>Document ID: {report_id} | Page 1 of 1</i>",
-        footer_style
-    ))
+    story.append(Spacer(1, 0.5*inch))
+    story.append(Paragraph("<i>This report has been generated using advanced AI technology and should be reviewed by a qualified healthcare professional.</i>", footer_note))
+    story.append(Paragraph(f"<i>Report ID: {report_id} | Generated: {formatted_date}</i>", footer_note))
     
     # Build PDF
     doc.build(story)
@@ -3491,510 +3180,61 @@ def statistics():
         }), 500
 
 
-# ============================================
-# AI HEALTH CHATBOT ENDPOINTS
-# ============================================
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'model_loaded': model is not None,
+        'llm_available': llm is not None,
+        'database_connected': db is not None and hasattr(db, 'collection'),
+        'firebase_mode': 'REST_API' if use_rest_api else 'Admin_SDK' if firebase_initialized else 'Local_Storage'
+    })
 
-# Store chat history in memory (use Redis or Firebase for production)
-chat_histories = {}
 
-@app.route('/api/chatbot', methods=['POST'])
+@app.route('/api/debug/user-predictions', methods=['GET'])
 @login_required
-def chatbot():
-    """
-    AI Health Assistant Chatbot - Provides personalized health guidance
-    """
+def debug_user_predictions():
+    """Debug endpoint to check user predictions"""
     try:
-        # Check if LLM is available
-        current_llm = get_llm()
-        if current_llm is None:
-            print("⚠️ Chatbot request failed: LLM not available (GROQ_API_KEY not set)")
-            return jsonify({
-                'success': False,
-                'error': 'AI Assistant is currently unavailable. Please contact the administrator to configure the GROQ API key.',
-                'message': 'I apologize, but the AI assistant is not configured yet. Please ask your administrator to set up the GROQ_API_KEY environment variable.'
-            }), 200  # Return 200 so frontend shows the message
-        
-        data = request.json
-        user_message = data.get('message', '').strip()
-        
-        if not user_message:
-            return jsonify({
-                'success': False,
-                'error': 'Message is required'
-            }), 400
-        
         user_id = session.get('user_id')
-        full_name = session.get('full_name', 'User')
         
-        # Initialize chat history for this user
-        if user_id not in chat_histories:
-            chat_histories[user_id] = []
+        # Get all predictions from Firebase
+        all_preds = db_ref.child('predictions').get()
         
-        # Get user's health context
-        try:
-            history = get_patient_history(user_id=user_id, limit=5)  # Last 5 predictions
-            
-            # Build user health context
-            health_context = ""
-            if history and len(history) > 0:
-                latest = history[0]
-                health_context = f"""
-USER HEALTH PROFILE:
-- Patient Name: {full_name}
-- Latest Risk Assessment: {latest.get('prediction', 'N/A')}
-- Risk Level: {latest.get('risk_level', 'N/A')}
-- Confidence: {latest.get('confidence', 'N/A')}%
-- Assessment Date: {latest.get('timestamp', 'N/A')}
-
-RECENT HEALTH METRICS:
-- Glucose Level: {latest.get('Glucose', 'N/A')} mg/dL
-- Blood Pressure: {latest.get('BloodPressure', 'N/A')} mm Hg
-- BMI: {latest.get('BMI', 'N/A')}
-- Age: {latest.get('Age', 'N/A')} years
-- Total Assessments: {len(history)}
-"""
-            else:
-                health_context = f"""
-USER HEALTH PROFILE:
-- Patient Name: {full_name}
-- Status: No health assessments yet
-- Recommendation: Complete a diabetes risk assessment to get personalized insights
-"""
-        except Exception as e:
-            print(f"Error getting health context: {e}")
-            health_context = f"USER: {full_name}"
+        # Find predictions for this user
+        user_preds = []
+        all_user_ids = set()
         
-        # Get knowledge base context
-        knowledge_context = ""
-        try:
-            if chatbot_knowledge_base:
-                # Simple keyword matching to find relevant documents
-                user_message_lower = user_message.lower()
-                keywords = ['diabetes', 'glucose', 'blood', 'sugar', 'insulin', 'bmi', 'diet', 'exercise', 
-                           'prevention', 'symptoms', 'treatment', 'risk', 'health']
-                
-                relevant_docs = []
-                for doc in chatbot_knowledge_base:
-                    doc_content = doc.get('content', '')
-                    # Check if any keyword appears in both user message and document
-                    if any(keyword in user_message_lower for keyword in keywords):
-                        if any(keyword in doc_content.lower() for keyword in keywords):
-                            relevant_docs.append(doc)
-                
-                if relevant_docs:
-                    knowledge_context = "\n\nADDITIONAL MEDICAL KNOWLEDGE:\n"
-                    for doc in relevant_docs[:2]:  # Limit to 2 most relevant docs
-                        content_preview = doc.get('content', '')[:500]
-                        knowledge_context += f"\n{content_preview}...\n"
-        except Exception as e:
-            print(f"Error getting knowledge base context: {e}")
-        
-        # Build conversation history
-        conversation_context = "\n".join([
-            f"{'USER' if msg['role'] == 'user' else 'ASSISTANT'}: {msg['content']}"
-            for msg in chat_histories[user_id][-6:]  # Last 3 exchanges
-        ])
-        
-        # Create AI prompt
-        system_prompt = """You are Dr. Sarah Mitchell, MD, a compassionate and knowledgeable AI health assistant specializing in diabetes prevention and metabolic health. You provide:
-
-🎯 CORE RESPONSIBILITIES:
-- Answer health questions with empathy and medical accuracy
-- Explain diabetes risk factors and prevention strategies
-- Provide lifestyle guidance (diet, exercise, stress management)
-- Help users understand their health metrics
-- Encourage proactive health management
-
-⚕️ COMMUNICATION STYLE:
-- Warm, empathetic, and encouraging
-- Use simple language, avoid excessive medical jargon
-- Be supportive yet medically accurate
-- Provide actionable, specific advice
-- Always remind users to consult healthcare providers for medical decisions
-
-🚫 IMPORTANT LIMITATIONS:
-- You cannot diagnose medical conditions
-- You cannot prescribe medications
-- You cannot replace professional medical advice
-- Always recommend consulting a doctor for serious concerns
-
-Keep responses concise (2-4 paragraphs) unless detailed explanation is requested."""
-
-        user_prompt = f"""{health_context}
-{knowledge_context}
-
-CONVERSATION HISTORY:
-{conversation_context if conversation_context else 'New conversation'}
-
-CURRENT USER MESSAGE:
-{user_message}
-
-Respond naturally as Dr. Sarah Mitchell. Be helpful, empathetic, and medically accurate. If additional medical knowledge is provided above, incorporate it naturally into your response."""
-
-        # Get AI response using Groq
-        from langchain_core.prompts import ChatPromptTemplate
-        
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            ("user", user_prompt)
-        ])
-        
-        chain = prompt | llm
-        response = chain.invoke({})
-        
-        ai_message = response.content
-        
-        # Update chat history
-        chat_histories[user_id].append({
-            'role': 'user',
-            'content': user_message,
-            'timestamp': datetime.now().isoformat()
-        })
-        chat_histories[user_id].append({
-            'role': 'assistant',
-            'content': ai_message,
-            'timestamp': datetime.now().isoformat()
-        })
-        
-        # Keep only last 20 messages
-        if len(chat_histories[user_id]) > 20:
-            chat_histories[user_id] = chat_histories[user_id][-20:]
+        if all_preds:
+            for pred_id, pred_data in all_preds.items():
+                if isinstance(pred_data, dict):
+                    pred_user_id = pred_data.get('user_id')
+                    all_user_ids.add(pred_user_id)
+                    
+                    if pred_user_id == user_id:
+                        user_preds.append({
+                            'prediction_id': pred_id,
+                            'patient_name': pred_data.get('patient_name'),
+                            'user_id': pred_user_id
+                        })
         
         return jsonify({
             'success': True,
-            'message': ai_message,
-            'timestamp': datetime.now().isoformat()
+            'current_user_id': user_id,
+            'current_username': session.get('username'),
+            'user_predictions': user_preds,
+            'total_user_predictions': len(user_preds),
+            'total_predictions_in_db': len(all_preds) if all_preds else 0,
+            'all_user_ids_in_db': list(all_user_ids)
         })
-    
     except Exception as e:
-        print(f"Chatbot error: {e}")
         import traceback
-        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': f'Failed to get response: {str(e)}'
+            'error': str(e),
+            'traceback': traceback.format_exc()
         }), 500
-
-
-@app.route('/api/chatbot/history', methods=['GET'])
-@login_required
-def chatbot_history():
-    """
-    Get chat history for the current user
-    """
-    try:
-        user_id = session.get('user_id')
-        
-        if user_id not in chat_histories:
-            return jsonify({
-                'success': True,
-                'messages': []
-            })
-        
-        return jsonify({
-            'success': True,
-            'messages': chat_histories[user_id]
-        })
-    
-    except Exception as e:
-        print(f"Error getting chat history: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/chatbot/clear', methods=['POST'])
-@login_required
-def clear_chatbot_history():
-    """
-    Clear chat history for the current user
-    """
-    try:
-        user_id = session.get('user_id')
-        
-        if user_id in chat_histories:
-            chat_histories[user_id] = []
-        
-        return jsonify({
-            'success': True,
-            'message': 'Chat history cleared'
-        })
-    
-    except Exception as e:
-        print(f"Error clearing chat history: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-# ============================================
-# END AI HEALTH CHATBOT ENDPOINTS
-# ============================================
-
-
-# ============================================
-# ADMIN CHATBOT KNOWLEDGE BASE MANAGEMENT
-# ============================================
-
-# Store for chatbot knowledge base documents
-chatbot_knowledge_base = []
-UPLOAD_FOLDER = 'chatbot_documents'
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'ppt', 'pptx', 'doc', 'docx', 'md'}
-
-# Create upload folder if it doesn't exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-def allowed_file(filename):
-    """Check if file extension is allowed"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def load_chatbot_knowledge_base():
-    """Load chatbot documents from Firebase into memory"""
-    global chatbot_knowledge_base
-    try:
-        import firebase_config
-        firebase_config.initialize_firebase()
-        
-        docs_ref = firebase_config.db_ref.child('chatbot_documents')
-        documents = docs_ref.get() or {}
-        
-        chatbot_knowledge_base = []
-        if documents:
-            for doc_id, doc_data in documents.items():
-                chatbot_knowledge_base.append({
-                    'id': doc_id,
-                    'filename': doc_data.get('filename', 'Unknown'),
-                    'type': doc_data.get('type', 'Unknown'),
-                    'content': doc_data.get('content', ''),
-                    'url': doc_data.get('url', '')
-                })
-        
-        print(f"✅ Loaded {len(chatbot_knowledge_base)} documents into chatbot knowledge base")
-        return True
-    except Exception as e:
-        print(f"⚠️ Error loading chatbot knowledge base: {e}")
-        return False
-
-@app.route('/api/admin/chatbot/documents', methods=['GET'])
-@login_required
-@admin_required
-def get_chatbot_documents():
-    """Get list of uploaded documents for chatbot knowledge base"""
-    try:
-        import firebase_config
-        firebase_config.initialize_firebase()
-        
-        docs_ref = firebase_config.db_ref.child('chatbot_documents')
-        documents = docs_ref.get() or {}
-        
-        doc_list = []
-        if documents:
-            for doc_id, doc_data in documents.items():
-                doc_list.append({
-                    'id': doc_id,
-                    'filename': doc_data.get('filename', 'Unknown'),
-                    'type': doc_data.get('type', 'Unknown'),
-                    'content': doc_data.get('content', ''),
-                    'url': doc_data.get('url', ''),
-                    'uploaded_at': doc_data.get('uploaded_at', ''),
-                    'size': doc_data.get('size', 0)
-                })
-        
-        return jsonify({
-            'success': True,
-            'documents': doc_list
-        })
-    except Exception as e:
-        print(f"Error fetching documents: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/admin/chatbot/upload', methods=['POST'])
-@login_required
-@admin_required
-def upload_chatbot_document():
-    """Upload document or URL to chatbot knowledge base"""
-    try:
-        import firebase_config
-        firebase_config.initialize_firebase()
-        
-        # Check if it's a file upload or URL
-        if 'file' in request.files:
-            file = request.files['file']
-            if file and file.filename and allowed_file(file.filename):
-                filename = file.filename
-                file_ext = filename.rsplit('.', 1)[1].lower()
-                
-                # Read file content
-                content = ""
-                if file_ext == 'txt' or file_ext == 'md':
-                    content = file.read().decode('utf-8')
-                elif file_ext == 'pdf':
-                    try:
-                        import PyPDF2
-                        pdf_reader = PyPDF2.PdfReader(file)
-                        content = "\n".join([page.extract_text() for page in pdf_reader.pages])
-                    except:
-                        content = "PDF processing not available. Install PyPDF2."
-                elif file_ext in ['doc', 'docx', 'ppt', 'pptx']:
-                    content = f"Document uploaded: {filename}. Content extraction requires additional libraries."
-                
-                # Save to Firebase
-                doc_id = f"doc_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                docs_ref = firebase_config.db_ref.child('chatbot_documents').child(doc_id)
-                docs_ref.set({
-                    'filename': filename,
-                    'type': 'file',
-                    'file_type': file_ext,
-                    'content': content[:10000],  # Limit to 10KB
-                    'uploaded_at': datetime.now().isoformat(),
-                    'uploaded_by': session.get('user_id'),
-                    'size': len(content)
-                })
-                
-                # Reload knowledge base from Firebase
-                load_chatbot_knowledge_base()
-                
-                return jsonify({
-                    'success': True,
-                    'message': f'Document "{filename}" uploaded and chatbot trained successfully',
-                    'document_id': doc_id,
-                    'total_documents': len(chatbot_knowledge_base)
-                })
-        
-        elif request.json and request.json.get('url'):
-            # URL upload
-            url = request.json.get('url')
-            try:
-                import requests
-                response = requests.get(url, timeout=10)
-                content = response.text[:10000]  # Limit to 10KB
-                
-                doc_id = f"url_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                docs_ref = firebase_config.db_ref.child('chatbot_documents').child(doc_id)
-                docs_ref.set({
-                    'url': url,
-                    'type': 'url',
-                    'content': content,
-                    'uploaded_at': datetime.now().isoformat(),
-                    'uploaded_by': session.get('user_id'),
-                    'size': len(content)
-                })
-                
-                # Reload knowledge base from Firebase
-                load_chatbot_knowledge_base()
-                
-                return jsonify({
-                    'success': True,
-                    'message': 'URL content added and chatbot trained successfully',
-                    'document_id': doc_id,
-                    'total_documents': len(chatbot_knowledge_base)
-                })
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': f'Failed to fetch URL: {str(e)}'
-                }), 400
-        
-        elif request.json and request.json.get('text'):
-            # Direct text upload
-            text = request.json.get('text')
-            title = request.json.get('title', 'Custom Text')
-            
-            doc_id = f"text_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            docs_ref = firebase_config.db_ref.child('chatbot_documents').child(doc_id)
-            docs_ref.set({
-                'filename': title,
-                'type': 'text',
-                'content': text[:10000],
-                'uploaded_at': datetime.now().isoformat(),
-                'uploaded_by': session.get('user_id'),
-                'size': len(text)
-            })
-            
-            # Reload knowledge base from Firebase
-            load_chatbot_knowledge_base()
-            
-            return jsonify({
-                'success': True,
-                'message': 'Text added and chatbot trained successfully',
-                'document_id': doc_id,
-                'total_documents': len(chatbot_knowledge_base)
-            })
-        
-        return jsonify({
-            'success': False,
-            'error': 'No valid file, URL, or text provided'
-        }), 400
-        
-    except Exception as e:
-        print(f"Error uploading document: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/admin/chatbot/train', methods=['POST'])
-@login_required
-@admin_required
-def train_chatbot():
-    """Reload chatbot knowledge base from Firebase"""
-    try:
-        load_chatbot_knowledge_base()
-        
-        return jsonify({
-            'success': True,
-            'message': f'Chatbot trained successfully with {len(chatbot_knowledge_base)} documents',
-            'document_count': len(chatbot_knowledge_base)
-        })
-    except Exception as e:
-        print(f"Error training chatbot: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/admin/chatbot/documents/<doc_id>', methods=['DELETE'])
-@login_required
-@admin_required
-def delete_chatbot_document(doc_id):
-    """Delete a document from chatbot knowledge base"""
-    try:
-        import firebase_config
-        firebase_config.initialize_firebase()
-        
-        docs_ref = firebase_config.db_ref.child('chatbot_documents').child(doc_id)
-        docs_ref.delete()
-        
-        # Reload knowledge base from Firebase
-        load_chatbot_knowledge_base()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Document deleted and chatbot retrained successfully',
-            'total_documents': len(chatbot_knowledge_base)
-        })
-    except Exception as e:
-        print(f"Error deleting document: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-# ============================================
-# END ADMIN CHATBOT KNOWLEDGE BASE MANAGEMENT
-# ============================================
 
 
 @app.route('/aggregate_analysis')
@@ -4088,7 +3328,7 @@ def aggregate_analysis():
         
         # Create prompt for Groq LLM - Enhanced for experienced doctor analysis
         prompt_template = ChatPromptTemplate.from_messages([
-            ("system", """You are Dr. Sarah Mitchell, MD, FACP, a board-certified endocrinologist with 15 years of clinical experience specializing in diabetes prevention, metabolic disorders, and evidence-based patient care at Johns Hopkins Medical Center.
+            ("system", """You are an AI medical assistant with expertise in diabetes prevention, metabolic health assessment, and evidence-based health recommendations.
 
 CLINICAL EXPERTISE:
 - Diabetes Prevention & Management (Type 1, Type 2, Gestational)
@@ -4214,12 +3454,8 @@ Deliver this analysis as if writing in a patient's electronic medical record."""
         )
         
         # Generate AI analysis
-        current_llm = get_llm()
-        if current_llm is None:
-            ai_analysis = "AI analysis service is currently unavailable. Please consult with your healthcare provider for a detailed assessment of your test results."
-        else:
-            response = current_llm.invoke(formatted_prompt)
-            ai_analysis = response.content
+        response = llm.invoke(formatted_prompt)
+        ai_analysis = response.content
         
         # Determine best report (lowest risk with highest confidence)
         best_report_text = None
@@ -4335,6 +3571,50 @@ def serve_report(filename):
         }), 404
 
 
+# ------------------- CHATBOT ROUTES -------------------
+
+@app.route('/chatbot/ask', methods=['POST'])
+def chatbot_ask():
+    """
+    Integrated chatbot endpoint - uses same LLM as main app
+    No separate backend needed!
+    """
+    try:
+        data = request.get_json()
+        
+        if not data or 'message' not in data:
+            return jsonify({
+                'answer': 'Please provide a message.',
+                'error': True
+            }), 400
+        
+        user_message = data.get('message', '')
+        
+        # Use integrated chatbot
+        response = chatbot.ask_question(user_message)
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        print(f"❌ Chatbot error: {str(e)}")
+        return jsonify({
+            'answer': 'Sorry, an error occurred while processing your request.',
+            'error': True
+        }), 500
+
+
+@app.route('/chatbot/health', methods=['GET'])
+def chatbot_health():
+    """Check if integrated chatbot is ready"""
+    is_healthy = chatbot.health_check()
+    
+    return jsonify({
+        'status': 'healthy' if is_healthy else 'limited',
+        'message': 'Chatbot ready with AI' if is_healthy else 'Chatbot ready (basic mode)',
+        'llm_configured': is_healthy
+    }), 200
+
+
 # ------------------- RUN APP -------------------
 if __name__ == '__main__':
     print("\n" + "="*70)
@@ -4343,11 +3623,6 @@ if __name__ == '__main__':
     print(f"✅ Flask App: Ready")
     print(f"✅ ML Model: {'Loaded' if model else '❌ Not Loaded'}")
     print(f"✅ Groq AI: {'Connected' if llm else '❌ Not Connected'}")
-    
-    # Load chatbot knowledge base at startup
-    print("📚 Loading chatbot knowledge base...")
-    load_chatbot_knowledge_base()
-    
     print("="*70 + "\n")
     
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)

@@ -440,14 +440,26 @@ export default function AdminPage() {
                             </div>
                           </td>
                           <td className="px-3 sm:px-4 py-3 text-right">
-                            <button
-                              onClick={() => handleDeleteUser(user.user_id, user.username, user.full_name)}
-                              className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 active:bg-red-100 rounded-lg transition-colors touch-target"
-                              title="Delete user"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                              <span className="hidden sm:inline">Delete</span>
-                            </button>
+                            <div className="flex justify-end gap-2">
+                              <a
+                                href={`/admin/patient_predictions?user_id=${user.user_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 active:bg-blue-100 rounded-lg transition-colors touch-target"
+                                title="View user predictions"
+                              >
+                                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                <span className="hidden sm:inline">View</span>
+                              </a>
+                              <button
+                                onClick={() => handleDeleteUser(user.user_id, user.username, user.full_name)}
+                                className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 active:bg-red-100 rounded-lg transition-colors touch-target"
+                                title="Delete user"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                <span className="hidden sm:inline">Delete</span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}

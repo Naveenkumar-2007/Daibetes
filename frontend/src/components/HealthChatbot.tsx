@@ -105,7 +105,7 @@ export default function HealthChatbot() {
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.message || 'Sorry, I encountered an error. Please try again.',
+        content: data.response || data.message || 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date(),
       };
 

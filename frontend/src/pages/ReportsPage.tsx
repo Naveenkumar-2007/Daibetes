@@ -42,21 +42,75 @@ export default function ReportsPage() {
 
   const viewReport = async (reportId: string) => {
     try {
-      const response = await reportAPI.downloadReport(reportId)
-      // Handle the response as text
-      let text = ''
-      if (typeof response.data === 'string') {
-        text = response.data
-      } else if (response.data instanceof Blob) {
-        text = await response.data.text()
+      // Use the new detail endpoint instead of download
+      const response = await fetch(`/api/user/reports/${reportId}`, {
+        credentials: 'include'
+      })
+      const data = await response.json()
+      
+      if (data.success && data.report) {
+        // Format the report data for display
+        const report = data.report
+        const text = `
+═══════════════════════════════════════════════════════════════
+              DIABETES RISK ASSESSMENT REPORT
+═══════════════════════════════════════════════════════════════
+
+PATIENT INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Name:               ${report.patient_name}
+Report ID:          ${report.report_id}
+Generated:          ${new Date(report.generated_at).toLocaleString()}
+
+PREDICTION RESULT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Diagnosis:          ${report.prediction_result}
+Confidence:         ${report.confidence_percentage.toFixed(1)}%
+Risk Level:         ${report.probability > 0.5 ? '⚠️ HIGH RISK' : '✅ LOW RISK'}
+
+PATIENT DATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Age:                ${report.patient_data.age} years
+Gender:             ${report.patient_data.gender}
+Glucose Level:      ${report.patient_data.glucose} mg/dL
+Blood Pressure:     ${report.patient_data.blood_pressure} mmHg
+BMI:                ${report.patient_data.bmi}
+Insulin:            ${report.patient_data.insulin} μU/mL
+Skin Thickness:     ${report.patient_data.skin_thickness} mm
+Pregnancies:        ${report.patient_data.pregnancies}
+Diabetes Pedigree:  ${report.patient_data.diabetes_pedigree}
+
+${report.ai_analysis ? `
+AI MEDICAL ANALYSIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${report.ai_analysis}
+` : ''}
+
+${report.risk_factors && report.risk_factors.length > 0 ? `
+RISK FACTORS IDENTIFIED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${report.risk_factors.map((factor: string, i: number) => `${i + 1}. ${factor}`).join('\n')}
+` : ''}
+
+${report.recommendations && report.recommendations.length > 0 ? `
+RECOMMENDATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${report.recommendations.map((rec: string, i: number) => `${i + 1}. ${rec}`).join('\n')}
+` : ''}
+
+═══════════════════════════════════════════════════════════════
+              END OF REPORT
+═══════════════════════════════════════════════════════════════
+        `.trim()
+        
+        setReportContent(text)
+        setViewingReport(reportId)
       } else {
-        text = JSON.stringify(response.data, null, 2)
+        alert('Failed to load report: ' + (data.error || 'Unknown error'))
       }
-      setReportContent(text)
-      setViewingReport(reportId)
     } catch (error: any) {
       console.error('Error viewing report:', error)
-      alert(error.response?.data?.message || 'Failed to view report')
+      alert('Failed to view report. Please try again.')
     }
   }
 
