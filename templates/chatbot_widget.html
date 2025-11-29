@@ -298,6 +298,7 @@
     const messages = document.getElementById('chatbot-messages');
     
     let thinkingMessage = null;
+    let conversationHistory = []; // Store conversation history
 
     // Toggle chat window
     toggle.addEventListener('click', () => {
@@ -371,19 +372,31 @@
         if (!text) return;
 
         addMessage(text, 'user');
+        const userMessage = text; // Store before clearing
         input.value = '';
         sendBtn.disabled = true;
 
         showThinking();
 
-        // Call the chatbot API endpoint
-        fetch('/chatbot/ask', {
+        // Add user message to conversation history
+        conversationHistory.push({
+            role: 'user',
+            content: userMessage
+        });
+
+        // Keep only last 6 messages (3 exchanges) for context
+        const recentHistory = conversationHistory.slice(-6);
+
+        // Call the chatbot API endpoint with conversation history
+        fetch('/api/chatbot', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({ 
-                message: text,
+                message: userMessage,
+                history: recentHistory,
                 agentic: true 
             })
         })
@@ -395,7 +408,15 @@
         })
         .then(data => {
             hideThinking();
-            addMessage(data.answer || 'Sorry, I could not generate an answer.', 'bot');
+            const botResponse = data.response || data.message || data.answer || 'Sorry, I could not generate an answer.';
+            addMessage(botResponse, 'bot');
+            
+            // Add bot response to conversation history
+            conversationHistory.push({
+                role: 'assistant',
+                content: botResponse
+            });
+            
             sendBtn.disabled = false;
             input.focus();
         })
