@@ -965,12 +965,11 @@ def get_user_reports():
         
         reports = []
         for pred in predictions:
-            # Check if report exists - multiple field names for compatibility
+            # Every prediction can have a report generated - check if it has necessary data
             has_report = bool(
-                pred.get('report_id') or 
-                pred.get('report_path') or 
-                pred.get('report_file') or 
-                pred.get('report_generated_at')
+                pred.get('id') or 
+                pred.get('prediction_id') or 
+                pred.get('firebase_id')
             )
             
             if has_report:
@@ -1106,12 +1105,13 @@ def get_all_users_api():
                 except:
                     pass
                 
-                # Count reports for this user
-                report_count = 0
+                # Count reports for this user (each prediction can generate a report)
+                report_count = prediction_count  # Reports are based on predictions
                 try:
+                    # Also check explicit reports node if it exists
                     user_reports = db_ref.child(f'reports/{user_id}').get()
-                    if user_reports:
-                        report_count = len(user_reports) if isinstance(user_reports, dict) else 0
+                    if user_reports and isinstance(user_reports, dict):
+                        report_count = max(report_count, len(user_reports))
                 except:
                     pass
                 
@@ -3106,17 +3106,24 @@ def download_report(report_id):
         # Generate beautiful PDF report
         pdf_buffer = generate_beautiful_pdf(report, report_id)
         
+        # CRITICAL: Seek to beginning of buffer before sending
+        pdf_buffer.seek(0)
+        
         # Generate filename
         patient_name = report.get('patient_name', 'Patient')
         timestamp = get_ist_now().strftime('%Y%m%d_%H%M%S')
         filename = f"diabetes_report_{patient_name.replace(' ', '_')}_{timestamp}.pdf"
         
-        return send_file(
+        # Return with proper headers for PDF
+        response = send_file(
             pdf_buffer,
             as_attachment=True,
             download_name=filename,
             mimetype='application/pdf'
         )
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
     
     except Exception as e:
         print(f"Error generating PDF report: {e}")
