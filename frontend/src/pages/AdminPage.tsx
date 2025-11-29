@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Users, FileText, TrendingUp, Activity, Upload, Database, Trash2, RefreshCw, FileUp, Link as LinkIcon, X } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Users, FileText, TrendingUp, Activity, Bot, Trash2 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { useAuth } from '../lib/auth'
 import { useNavigate, Link } from 'react-router-dom'
 import { adminAPI } from '../lib/api'
@@ -23,15 +23,6 @@ interface Stats {
   positive_predictions: number
 }
 
-interface ChatbotDocument {
-  id: string
-  filename?: string
-  type: string
-  url?: string
-  uploaded_at: string
-  size: number
-}
-
 export default function AdminPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -44,14 +35,6 @@ export default function AdminPage() {
   })
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'users' | 'chatbot'>('users')
-  const [documents, setDocuments] = useState<ChatbotDocument[]>([])
-  const [uploading, setUploading] = useState(false)
-  const [training, setTraining] = useState(false)
-  const [showUploadModal, setShowUploadModal] = useState(false)
-  const [uploadType, setUploadType] = useState<'file' | 'url' | 'text'>('file')
-  const [urlInput, setUrlInput] = useState('')
-  const [textInput, setTextInput] = useState('')
-  const [textTitle, setTextTitle] = useState('')
 
   useEffect(() => {
     // Check if user is admin
@@ -60,10 +43,7 @@ export default function AdminPage() {
       return
     }
     fetchAdminData()
-    if (activeTab === 'chatbot') {
-      fetchDocuments()
-    }
-  }, [user, navigate, activeTab])
+  }, [user, navigate])
 
   const fetchAdminData = async () => {
     try {
@@ -82,174 +62,6 @@ export default function AdminPage() {
       console.error('Error fetching admin data:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchDocuments = async () => {
-    try {
-      const response = await fetch('/api/admin/chatbot/documents', {
-        credentials: 'include'
-      })
-      const data = await response.json()
-      if (data.success) {
-        setDocuments(data.documents || [])
-      }
-    } catch (error) {
-      console.error('Error fetching documents:', error)
-    }
-  }
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file type
-    const allowedTypes = ['text/plain', 'application/pdf', 'text/markdown', 
-                          'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(txt|pdf|md|doc|docx)$/i)) {
-      alert('Please upload a valid document (TXT, PDF, MD, DOC, DOCX)')
-      return
-    }
-
-    setUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-
-    try {
-      const response = await fetch('/api/admin/chatbot/upload', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData
-      })
-      const data = await response.json()
-      if (data.success) {
-        alert(`✅ ${data.message}\n\n📊 Total documents: ${data.total_documents}`)
-        fetchDocuments()
-        setShowUploadModal(false)
-      } else {
-        alert('❌ Upload failed: ' + data.error)
-      }
-    } catch (error) {
-      console.error('Upload error:', error)
-      alert('❌ Upload failed. Please try again.')
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const handleUrlUpload = async () => {
-    if (!urlInput.trim()) {
-      alert('Please enter a URL')
-      return
-    }
-
-    // Basic URL validation
-    try {
-      new URL(urlInput)
-    } catch {
-      alert('Please enter a valid URL')
-      return
-    }
-
-    setUploading(true)
-    try {
-      const response = await fetch('/api/admin/chatbot/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ url: urlInput })
-      })
-      const data = await response.json()
-      if (data.success) {
-        alert(`✅ ${data.message}\n\n📊 Total documents: ${data.total_documents}`)
-        fetchDocuments()
-        setShowUploadModal(false)
-        setUrlInput('')
-      } else {
-        alert('❌ Failed: ' + data.error)
-      }
-    } catch (error) {
-      alert('❌ Upload failed. Please try again.')
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const handleTextUpload = async () => {
-    if (!textInput.trim() || !textTitle.trim()) {
-      alert('Please enter both title and text content')
-      return
-    }
-
-    setUploading(true)
-    try {
-      const response = await fetch('/api/admin/chatbot/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ text: textInput, title: textTitle })
-      })
-      const data = await response.json()
-      if (data.success) {
-        alert(`✅ ${data.message}\n\n📊 Total documents: ${data.total_documents}`)
-        fetchDocuments()
-        setShowUploadModal(false)
-        setTextInput('')
-        setTextTitle('')
-      } else {
-        alert('❌ Failed: ' + data.error)
-      }
-    } catch (error) {
-      alert('❌ Upload failed. Please try again.')
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const handleTrainChatbot = async () => {
-    if (!confirm('Train chatbot with all uploaded documents?\n\nThis will reload the knowledge base from the database.')) {
-      return
-    }
-
-    setTraining(true)
-    try {
-      const response = await fetch('/api/admin/chatbot/train', {
-        method: 'POST',
-        credentials: 'include'
-      })
-      const data = await response.json()
-      if (data.success) {
-        alert(`✅ ${data.message}`)
-        fetchDocuments()
-      } else {
-        alert('❌ Training failed: ' + data.error)
-      }
-    } catch (error) {
-      alert('❌ Training failed. Please try again.')
-    } finally {
-      setTraining(false)
-    }
-  }
-
-  const handleDeleteDocument = async (docId: string, filename: string) => {
-    if (!confirm(`Delete "${filename}"?\n\nThis will remove the document and retrain the chatbot.`)) {
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/admin/chatbot/documents/${docId}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      })
-      const data = await response.json()
-      if (data.success) {
-        alert(`✅ ${data.message}`)
-        fetchDocuments()
-      } else {
-        alert('❌ Delete failed: ' + data.error)
-      }
-    } catch (error) {
-      alert('❌ Delete failed. Please try again.')
     }
   }
 
@@ -272,20 +84,6 @@ export default function AdminPage() {
       }
     } catch (error) {
       alert('❌ Delete failed. Please try again.')
-    }
-  }
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B'
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-  }
-
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleString()
-    } catch {
-      return dateString
     }
   }
 
@@ -344,8 +142,8 @@ export default function AdminPage() {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <Database className="w-4 h-4 inline mr-2" />
-              AI Chatbot ({documents.length})
+              <Bot className="w-4 h-4 inline mr-2" />
+              AI Chatbot
             </button>
           </div>
         </div>
@@ -441,16 +239,18 @@ export default function AdminPage() {
                           </td>
                           <td className="px-3 sm:px-4 py-3 text-right">
                             <div className="flex justify-end gap-2">
-                              <a
-                                href={`/admin/patient_predictions?user_id=${user.user_id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                onClick={() => {
+                                  // Open user predictions in a modal or navigate to React page
+                                  alert(`Viewing predictions for user: ${user.full_name}\n\nPredictions: ${user.prediction_count}\nReports: ${user.report_count}`)
+                                  // TODO: Navigate to user detail page or open modal
+                                }}
                                 className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 active:bg-blue-100 rounded-lg transition-colors touch-target"
                                 title="View user predictions"
                               >
                                 <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                 <span className="hidden sm:inline">View</span>
-                              </a>
+                              </button>
                               <button
                                 onClick={() => handleDeleteUser(user.user_id, user.username, user.full_name)}
                                 className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 active:bg-red-100 rounded-lg transition-colors touch-target"
@@ -473,262 +273,54 @@ export default function AdminPage() {
 
         {activeTab === 'chatbot' && (
           <>
-            {/* Chatbot Controls */}
+            {/* Chatbot Status - Integrated Mode */}
             <div className="card mb-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">AI Chatbot Knowledge Base</h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Upload documents to train your AI health assistant • {documents.length} documents loaded
-                  </p>
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                  <Bot className="w-8 h-8 text-green-600" />
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setShowUploadModal(true)}
-                    className="btn-primary flex items-center gap-2"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Document
-                  </button>
-                  <button
-                    onClick={handleTrainChatbot}
-                    disabled={training || documents.length === 0}
-                    className="btn-secondary flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${training ? 'animate-spin' : ''}`} />
-                    {training ? 'Training...' : 'Train Chatbot'}
-                  </button>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Integrated AI Chatbot Active</h2>
+                <p className="text-gray-600 text-center max-w-2xl">
+                  Your AI health assistant is powered by Groq LLM and uses real-time medical knowledge.
+                  No document upload needed - the chatbot is pre-trained with diabetes and health expertise.
+                </p>
+                <div className="mt-6 flex items-center gap-2 text-sm text-green-600">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="font-medium">Chatbot is online and ready</span>
+                </div>
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-900">
+                    <strong>💡 Tip:</strong> Test the chatbot using the floating 🩺 icon at the bottom right of any page.
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Documents List */}
-            <div className="space-y-3">
-              {documents.length === 0 ? (
-                <div className="card text-center py-12">
-                  <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No documents uploaded</h3>
-                  <p className="text-gray-600 mb-4">Upload medical documents, articles, or FAQs to train your AI chatbot</p>
-                  <button
-                    onClick={() => setShowUploadModal(true)}
-                    className="btn-primary inline-flex items-center gap-2"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload First Document
-                  </button>
-                </div>
-              ) : (
-                documents.map((doc) => (
-                  <motion.div
-                    key={doc.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="card hover:shadow-lg transition-shadow"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                          <h3 className="font-medium text-gray-900 truncate">{doc.filename || 'Untitled'}</h3>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            doc.type === 'file' ? 'bg-blue-100 text-blue-700' :
-                            doc.type === 'url' ? 'bg-green-100 text-green-700' :
-                            'bg-purple-100 text-purple-700'
-                          }`}>
-                            {doc.type.toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                          <span>📊 {formatFileSize(doc.size)}</span>
-                          <span>📅 {formatDate(doc.uploaded_at)}</span>
-                          {doc.url && (
-                            <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
-                              <LinkIcon className="w-3 h-3" />
-                              View source
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteDocument(doc.id, doc.filename || 'this document')}
-                        className="flex-shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete document"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </motion.div>
-                ))
-              )}
+            {/* Chatbot Features */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="card text-center">
+                <div className="text-3xl mb-2">🩺</div>
+                <h3 className="font-semibold text-gray-900 mb-1">Medical Expertise</h3>
+                <p className="text-sm text-gray-600">AI-powered diabetes & health guidance</p>
+              </div>
+              <div className="card text-center">
+                <div className="text-3xl mb-2">⚡</div>
+                <h3 className="font-semibold text-gray-900 mb-1">Real-time Responses</h3>
+                <p className="text-sm text-gray-600">Instant answers powered by Groq</p>
+              </div>
+              <div className="card text-center">
+                <div className="text-3xl mb-2">🔒</div>
+                <h3 className="font-semibold text-gray-900 mb-1">Secure & Private</h3>
+                <p className="text-sm text-gray-600">Patient data stays protected</p>
+              </div>
             </div>
+
+            {/* Old Upload UI Removed - No longer needed for integrated chatbot */}
           </>
         )}
       </main>
 
-      {/* Upload Modal */}
-      <AnimatePresence>
-        {showUploadModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-            onClick={() => !uploading && setShowUploadModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-gray-900">Upload Document</h2>
-                  <button
-                    onClick={() => !uploading && setShowUploadModal(false)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                    disabled={uploading}
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Upload Type Selector */}
-                <div className="flex gap-2 mb-6">
-                  <button
-                    onClick={() => setUploadType('file')}
-                    className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
-                      uploadType === 'file'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <FileUp className="w-4 h-4 inline mr-2" />
-                    File
-                  </button>
-                  <button
-                    onClick={() => setUploadType('url')}
-                    className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
-                      uploadType === 'url'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <LinkIcon className="w-4 h-4 inline mr-2" />
-                    URL
-                  </button>
-                  <button
-                    onClick={() => setUploadType('text')}
-                    className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
-                      uploadType === 'text'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <FileText className="w-4 h-4 inline mr-2" />
-                    Text
-                  </button>
-                </div>
-
-                {/* Upload Content */}
-                {uploadType === 'file' && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Upload PDF, TXT, MD, DOC, or DOCX files. The content will be automatically extracted and used to train the chatbot.
-                    </p>
-                    <label className="block w-full">
-                      <input
-                        type="file"
-                        accept=".txt,.pdf,.md,.doc,.docx"
-                        onChange={handleFileUpload}
-                        disabled={uploading}
-                        className="hidden"
-                        id="fileInput"
-                      />
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer">
-                        <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                        <p className="text-sm font-medium text-gray-900">
-                          {uploading ? 'Uploading and training...' : 'Click to select file'}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">TXT, PDF, MD, DOC, DOCX (max 10MB)</p>
-                      </div>
-                    </label>
-                  </div>
-                )}
-
-                {uploadType === 'url' && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Enter a URL to fetch and extract content. Works best with articles and documentation pages.
-                    </p>
-                    <input
-                      type="url"
-                      value={urlInput}
-                      onChange={(e) => setUrlInput(e.target.value)}
-                      placeholder="https://example.com/article"
-                      className="input-field mb-4"
-                      disabled={uploading}
-                    />
-                    <button
-                      onClick={handleUrlUpload}
-                      disabled={uploading || !urlInput.trim()}
-                      className="btn-primary w-full disabled:opacity-50"
-                    >
-                      {uploading ? 'Uploading and training...' : 'Upload URL'}
-                    </button>
-                  </div>
-                )}
-
-                {uploadType === 'text' && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Paste or type text content directly. Useful for FAQs, guidelines, or custom knowledge.
-                    </p>
-                    <input
-                      type="text"
-                      value={textTitle}
-                      onChange={(e) => setTextTitle(e.target.value)}
-                      placeholder="Document title..."
-                      className="input-field mb-3"
-                      disabled={uploading}
-                    />
-                    <textarea
-                      value={textInput}
-                      onChange={(e) => setTextInput(e.target.value)}
-                      placeholder="Paste your text content here..."
-                      rows={8}
-                      className="input-field mb-4 resize-none"
-                      disabled={uploading}
-                    />
-                    <button
-                      onClick={handleTextUpload}
-                      disabled={uploading || !textInput.trim() || !textTitle.trim()}
-                      className="btn-primary w-full disabled:opacity-50"
-                    >
-                      {uploading ? 'Uploading and training...' : 'Upload Text'}
-                    </button>
-                  </div>
-                )}
-
-                {uploading && (
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
-                      <div>
-                        <p className="text-sm font-medium text-blue-900">Processing...</p>
-                        <p className="text-xs text-blue-700">Uploading and training chatbot automatically</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Mobile Navigation */}
+      {/* Old Upload Modal Removed - Not needed for integrated chatbot */}
       <MobileNav />
     </div>
   )

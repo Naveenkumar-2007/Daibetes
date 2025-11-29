@@ -488,7 +488,7 @@ def serve_react_app(path):
     """Serve React app static files and handle SPA routing"""
     # CRITICAL: Don't intercept API routes, Flask templates, or backend endpoints
     api_prefixes = ['api/', 'predict', 'login', 'register', 'logout', 'user/', 'admin/', 
-                    'reports/', 'download_', 'health', 'report', 'reset_password']
+                    'download_', 'health', 'report', 'reset_password', 'chatbot/', 'static/']
     
     # If path starts with any API prefix, let Flask handle it (don't serve React)
     if any(path.startswith(prefix) for prefix in api_prefixes):
@@ -1665,18 +1665,14 @@ def admin_patients():
     return render_template('admin_patients.html')
 
 
-@app.route('/admin/patient_predictions')
-@admin_required
-def patient_predictions():
-    """Admin page to view a specific patient's predictions"""
-    return render_template('patient_predictions.html')
+# OLD FLASK TEMPLATE REMOVED - Now using React admin dashboard
+# @app.route('/admin/patient_predictions')
+# Use React route: /admin instead
 
 
-@app.route('/admin/reports')
-@admin_required
-def admin_all_reports():
-    """Admin page to view all medical reports from all patients"""
-    return render_template('admin_reports.html')
+# OLD FLASK TEMPLATE REMOVED - Now using React reports page
+# @app.route('/admin/reports')
+# Use React route: /reports instead
 
 
 @app.route('/admin/get_all_reports', methods=['GET'])
