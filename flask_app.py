@@ -1137,6 +1137,50 @@ def get_all_users_api():
         }), 500
 
 
+@app.route('/api/admin/users/<user_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_user_api(user_id):
+    """Delete a user and all their data"""
+    try:
+        from firebase_config import db_ref
+        
+        # Check if user exists
+        user_data = db_ref.child(f'users/{user_id}').get()
+        if not user_data:
+            return jsonify({
+                'success': False,
+                'error': 'User not found'
+            }), 404
+        
+        # Delete user's predictions
+        all_preds = db_ref.child('predictions').get()
+        if all_preds:
+            for pred_id, pred_data in all_preds.items():
+                if isinstance(pred_data, dict) and pred_data.get('user_id') == user_id:
+                    db_ref.child(f'predictions/{pred_id}').delete()
+        
+        # Delete user's reports
+        db_ref.child(f'reports/{user_id}').delete()
+        
+        # Delete user's chat history
+        db_ref.child(f'chat_history/{user_id}').delete()
+        
+        # Delete the user account
+        db_ref.child(f'users/{user_id}').delete()
+        
+        return jsonify({
+            'success': True,
+            'message': f'User {user_id} and all associated data deleted successfully'
+        })
+    except Exception as e:
+        print(f"❌ Error deleting user: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @app.route('/api/admin/stats', methods=['GET'])
 @login_required
 @admin_required
