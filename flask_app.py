@@ -3755,16 +3755,24 @@ def api_chatbot():
                 'error': 'Chatbot not initialized'
             }), 503
         
+        # Log API key and LLM status for debugging
+        groq_key_status = "SET" if os.getenv("GROQ_API_KEY") else "NOT SET"
+        print(f"🔑 GROQ_API_KEY status: {groq_key_status}")
+        print(f"🤖 Chatbot object: {chatbot is not None}")
+        print(f"🧠 Chatbot.llm: {chatbot.llm is not None if chatbot else 'N/A'}")
+        print(f"🧠 Global llm: {llm is not None}")
+        
         # Check if LLM is available (more lenient check)
         if not llm and not chatbot.llm:
-            print("❌ LLM not initialized - no API key")
+            print("❌ LLM not initialized - no API key or initialization failed")
+            print(f"   GROQ_API_KEY: {groq_key_status}")
             fallback_response = "I apologize, but the AI chatbot is temporarily unavailable. Please try again in a moment or contact support if this persists."
             return jsonify({
                 'success': False,
                 'message': fallback_response,
                 'response': fallback_response,
                 'answer': fallback_response,
-                'error': 'LLM not initialized'
+                'error': 'LLM not initialized - API key missing or invalid'
             }), 503
         
         print(f"✅ Chatbot ready - LLM: {chatbot.llm is not None}")
@@ -3774,12 +3782,24 @@ def api_chatbot():
         print(f"📜 History length: {len(conversation_history)} messages")
         
         # Use integrated chatbot with Groq LLM and conversation context
-        response = chatbot.ask_question(user_message, conversation_history=conversation_history)
-        
-        print(f"✅ Chatbot response generated: {len(response.get('answer', ''))} chars")
+        try:
+            response = chatbot.ask_question(user_message, conversation_history=conversation_history)
+            print(f"✅ Chatbot response generated: {len(response.get('answer', ''))} chars")
+        except Exception as chatbot_error:
+            print(f"❌ Chatbot.ask_question error: {chatbot_error}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({
+                'success': False,
+                'message': 'An error occurred while processing your message. Please try again.',
+                'response': 'An error occurred while processing your message. Please try again.',
+                'answer': 'An error occurred while processing your message. Please try again.',
+                'error': f'Chatbot execution error: {str(chatbot_error)}'
+            }), 500
         
         if response.get('error'):
             error_message = response.get('answer', 'An error occurred')
+            print(f"⚠️ Chatbot returned error: {error_message}")
             return jsonify({
                 'success': False,
                 'message': error_message,

@@ -632,17 +632,17 @@ def change_user_password(user_id, old_password, new_password):
         if not user_data:
             return False, "User not found"
         
-        # Verify old password
-        if hash_password(old_password) != user_data.get('password'):
+        # Verify old password (using password_hash to match Firestore structure)
+        if hash_password(old_password) != user_data.get('password_hash'):
             return False, "Current password is incorrect"
         
         # Validate new password
         if len(new_password) < 6:
             return False, "New password must be at least 6 characters"
         
-        # Update password in Firebase
+        # Update password in Firebase (use password_hash field)
         user_ref.update({
-            'password': hash_password(new_password)
+            'password_hash': hash_password(new_password)
         })
         
         return True, "Password changed successfully"
