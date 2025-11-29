@@ -252,33 +252,61 @@ YOUR RESPONSE (provide a clear, helpful, and well-formatted answer):"""
             # Get response from Groq with temperature for variety
             from langchain_core.messages import HumanMessage, SystemMessage
             import time
+            import random
             
-            # Add timestamp to ensure unique responses
+            # Add timestamp AND random seed to ensure unique responses
             current_time = time.strftime("%Y-%m-%d %H:%M:%S")
+            random_seed = random.randint(1000, 9999)
+            
+            logger.info(f"Generating response for question: {question[:50]}...")
             
             messages = [
-                SystemMessage(content=f"You are an advanced AI Health Assistant. Current time: {current_time}. Provide unique, well-formatted, and personalized responses to each question. Use markdown formatting, bullet points, and emojis appropriately. Never give repetitive or generic answers. Always tailor your response to the specific user question. Each conversation is unique."),
+                SystemMessage(content=f"You are an advanced AI Health Assistant. Current time: {current_time}. Session ID: {random_seed}. Provide unique, well-formatted, and personalized responses to each question. Use markdown formatting, bullet points, and emojis appropriately. Never give repetitive or generic answers. Always tailor your response to the specific user question. Each conversation is unique. Vary your response style and depth based on the question complexity."),
                 HumanMessage(content=prompt)
             ]
             
-            # Use temperature 0.7 for more varied responses while maintaining accuracy
-            response = self.llm.invoke(messages)
-            answer = response.content if hasattr(response, 'content') else str(response)
-            
-            # Clean up answer
-            answer = answer.strip()
-            
-            # Ensure response is not empty
-            if not answer:
+            try:
+                # Use temperature 0.7 for more varied responses while maintaining accuracy
+                logger.info("Invoking LLM...")
+                response = self.llm.invoke(messages)
+                
+                # Extract answer from response
+                if hasattr(response, 'content'):
+                    answer = response.content
+                elif hasattr(response, 'text'):
+                    answer = response.text
+                elif isinstance(response, str):
+                    answer = response
+                else:
+                    answer = str(response)
+                
+                # Clean up answer
+                answer = answer.strip()
+                
+                logger.info(f"LLM response length: {len(answer)} chars")
+                
+                # Ensure response is not empty or too short
+                if not answer or len(answer) < 10:
+                    logger.warning(f"Response too short or empty: '{answer}'")
+                    return {
+                        "answer": "I apologize, but I'm having trouble generating a complete response right now. Could you please rephrase your question or try asking it differently?",
+                        "error": False
+                    }
+                
+                logger.info("✅ Response generated successfully")
                 return {
-                    "answer": "I apologize, but I'm having trouble generating a response right now. Could you please rephrase your question?",
+                    "answer": answer,
                     "error": False
                 }
-            
-            return {
-                "answer": answer,
-                "error": False
-            }
+                
+            except Exception as llm_error:
+                logger.error(f"LLM invocation error: {str(llm_error)}")
+                import traceback
+                traceback.print_exc()
+                return {
+                    "answer": f"I apologize, but I encountered a technical issue while processing your question. Error: {str(llm_error)[:100]}. Please try again.",
+                    "error": True
+                }
             
         except Exception as e:
             logger.error(f"Chatbot error: {str(e)}")

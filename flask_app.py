@@ -3724,10 +3724,15 @@ def api_chatbot():
     try:
         data = request.get_json()
         
+        # Log request for production debugging
+        print(f"🤖 Chatbot request received: {data.get('message', '')[:50] if data else 'No data'}...")
+        
         if not data or 'message' not in data:
             return jsonify({
                 'success': False,
                 'message': 'Please provide a message.',
+                'response': 'Please provide a message.',
+                'answer': 'Please provide a message.',
                 'error': 'Missing message in request'
             }), 400
         
@@ -3737,35 +3742,67 @@ def api_chatbot():
             return jsonify({
                 'success': False,
                 'message': 'Please enter a question.',
+                'response': 'Please enter a question.',
+                'answer': 'Please enter a question.',
                 'error': 'Empty message'
             }), 400
         
+        # Verify chatbot is initialized
+        if not chatbot or not chatbot.health_check():
+            print("⚠️ Chatbot LLM not initialized - returning fallback")
+            fallback_response = "I apologize, but the AI chatbot is temporarily unavailable. Please try again in a moment or contact support if this persists."
+            return jsonify({
+                'success': False,
+                'message': fallback_response,
+                'response': fallback_response,
+                'answer': fallback_response,
+                'error': 'LLM not initialized'
+            }), 503
+        
         # Get conversation history from request (optional)
         conversation_history = data.get('history', [])
+        print(f"📜 History length: {len(conversation_history)} messages")
         
         # Use integrated chatbot with Groq LLM and conversation context
         response = chatbot.ask_question(user_message, conversation_history=conversation_history)
         
+        print(f"✅ Chatbot response generated: {len(response.get('answer', ''))} chars")
+        
         if response.get('error'):
+            error_message = response.get('answer', 'An error occurred')
             return jsonify({
                 'success': False,
-                'message': response.get('answer', 'An error occurred'),
+                'message': error_message,
+                'response': error_message,
+                'answer': error_message,
                 'error': 'Chatbot processing error'
             }), 500
         
+        answer_text = response.get('answer', '')
+        
+        # Ensure response is not empty
+        if not answer_text or len(answer_text.strip()) < 10:
+            print("⚠️ Empty or too short response, using fallback")
+            answer_text = "I apologize, but I'm having trouble formulating a response. Could you please rephrase your question or try asking something different?"
+        
         return jsonify({
             'success': True,
-            'response': response.get('answer', ''),
-            'message': response.get('answer', '')
+            'response': answer_text,
+            'message': answer_text,
+            'answer': answer_text
         }), 200
         
     except Exception as e:
         print(f"❌ Chatbot API error: {str(e)}")
         import traceback
         traceback.print_exc()
+        
+        error_response = 'Sorry, I encountered an error processing your request. Please try again.'
         return jsonify({
             'success': False,
-            'message': 'Sorry, I encountered an error. Please try again.',
+            'message': error_response,
+            'response': error_response,
+            'answer': error_response,
             'error': str(e)
         }), 500
 
