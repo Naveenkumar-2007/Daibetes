@@ -77,12 +77,14 @@ export default function HealthChatbot() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input.trim();
     setInput('');
     setIsLoading(true);
 
     try {
-      // Prepare conversation history (last 6 messages for context)
-      const history = messages.slice(-6).map(msg => ({
+      // Prepare conversation history (last 6 messages excluding the welcome message)
+      const conversationMessages = messages.slice(1); // Skip welcome message
+      const history = conversationMessages.slice(-6).map(msg => ({
         role: msg.role,
         content: msg.content
       }));
@@ -92,7 +94,7 @@ export default function HealthChatbot() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ 
-          message: input.trim(),
+          message: currentInput,
           history: history  // Send conversation context
         }),
       });

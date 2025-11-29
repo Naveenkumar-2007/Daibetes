@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import { useNavigate, Link } from 'react-router-dom'
 import { adminAPI } from '../lib/api'
 import MobileNav from '../components/MobileNav'
+import ChatbotTrainingPage from './ChatbotTrainingPage'
 
 interface User {
   user_id: string
@@ -272,51 +273,9 @@ export default function AdminPage() {
         )}
 
         {activeTab === 'chatbot' && (
-          <>
-            {/* Chatbot Status - Integrated Mode */}
-            <div className="card mb-6">
-              <div className="flex flex-col items-center justify-center py-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                  <Bot className="w-8 h-8 text-green-600" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Integrated AI Chatbot Active</h2>
-                <p className="text-gray-600 text-center max-w-2xl">
-                  Your AI health assistant is powered by Groq LLM and uses real-time medical knowledge.
-                  No document upload needed - the chatbot is pre-trained with diabetes and health expertise.
-                </p>
-                <div className="mt-6 flex items-center gap-2 text-sm text-green-600">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="font-medium">Chatbot is online and ready</span>
-                </div>
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm text-blue-900">
-                    <strong>💡 Tip:</strong> Test the chatbot using the floating 🩺 icon at the bottom right of any page.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Chatbot Features */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="card text-center">
-                <div className="text-3xl mb-2">🩺</div>
-                <h3 className="font-semibold text-gray-900 mb-1">Medical Expertise</h3>
-                <p className="text-sm text-gray-600">AI-powered diabetes & health guidance</p>
-              </div>
-              <div className="card text-center">
-                <div className="text-3xl mb-2">⚡</div>
-                <h3 className="font-semibold text-gray-900 mb-1">Real-time Responses</h3>
-                <p className="text-sm text-gray-600">Instant answers powered by Groq</p>
-              </div>
-              <div className="card text-center">
-                <div className="text-3xl mb-2">🔒</div>
-                <h3 className="font-semibold text-gray-900 mb-1">Secure & Private</h3>
-                <p className="text-sm text-gray-600">Patient data stays protected</p>
-              </div>
-            </div>
-
-            {/* Old Upload UI Removed - No longer needed for integrated chatbot */}
-          </>
+          <div className="mt-6">
+            <ChatbotTrainingPage />
+          </div>
         )}
       </main>
 

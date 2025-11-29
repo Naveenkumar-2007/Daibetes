@@ -101,40 +101,39 @@ export default function ChatbotTrainingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8 px-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-blue-600 to-purple-600 p-4 rounded-xl">
-              <Brain className="w-8 h-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">AI Chatbot Training</h1>
-              <p className="text-gray-600">Train the chatbot with custom medical knowledge</p>
-            </div>
+    <div className="space-y-6">
+      {/* Header - Simplified for embedding */}
+      <div className="bg-white rounded-2xl shadow-xl p-6">
+        <div className="flex items-center gap-4">
+          <div className="bg-gradient-to-br from-blue-600 to-purple-600 p-4 rounded-xl">
+            <Brain className="w-8 h-8 text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">AI Chatbot Training</h2>
+            <p className="text-gray-600">Train the chatbot with custom medical knowledge</p>
           </div>
         </div>
+      </div>
 
-        {/* Message Alert */}
-        {message && (
-          <div
-            className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${
-              message.type === 'success'
-                ? 'bg-green-50 border border-green-200 text-green-800'
-                : 'bg-red-50 border border-red-200 text-red-800'
-            }`}
-          >
-            {message.type === 'success' ? (
-              <CheckCircle className="w-5 h-5 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            )}
-            <span className="font-medium">{message.text}</span>
-          </div>
-        )}
+      {/* Message Alert */}
+      {message && (
+        <div
+          className={`p-4 rounded-xl flex items-center gap-3 ${
+            message.type === 'success'
+              ? 'bg-green-50 border border-green-200 text-green-800'
+              : 'bg-red-50 border border-red-200 text-red-800'
+          }`}
+        >
+          {message.type === 'success' ? (
+            <CheckCircle className="w-5 h-5 flex-shrink-0" />
+          ) : (
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          )}
+          <span className="font-medium">{message.text}</span>
+        </div>
+      )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Add New Training Data */}
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <div className="flex items-center gap-3 mb-4">
@@ -244,7 +243,7 @@ export default function ChatbotTrainingPage() {
         </div>
 
         {/* Info Section */}
-        <div className="mt-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-xl p-6 text-white">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-xl p-6 text-white">
           <h3 className="text-xl font-bold mb-3 flex items-center gap-2">
             <Brain className="w-6 h-6" />
             How Auto-Training Works
@@ -270,7 +269,6 @@ export default function ChatbotTrainingPage() {
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }

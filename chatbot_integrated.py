@@ -251,9 +251,13 @@ YOUR RESPONSE (provide a clear, helpful, and well-formatted answer):"""
 
             # Get response from Groq with temperature for variety
             from langchain_core.messages import HumanMessage, SystemMessage
+            import time
+            
+            # Add timestamp to ensure unique responses
+            current_time = time.strftime("%Y-%m-%d %H:%M:%S")
             
             messages = [
-                SystemMessage(content="You are an advanced AI Health Assistant. Provide unique, well-formatted, and personalized responses to each question. Use markdown formatting, bullet points, and emojis appropriately. Never give repetitive or generic answers. Always tailor your response to the specific user question."),
+                SystemMessage(content=f"You are an advanced AI Health Assistant. Current time: {current_time}. Provide unique, well-formatted, and personalized responses to each question. Use markdown formatting, bullet points, and emojis appropriately. Never give repetitive or generic answers. Always tailor your response to the specific user question. Each conversation is unique."),
                 HumanMessage(content=prompt)
             ]
             
@@ -261,8 +265,18 @@ YOUR RESPONSE (provide a clear, helpful, and well-formatted answer):"""
             response = self.llm.invoke(messages)
             answer = response.content if hasattr(response, 'content') else str(response)
             
+            # Clean up answer
+            answer = answer.strip()
+            
+            # Ensure response is not empty
+            if not answer:
+                return {
+                    "answer": "I apologize, but I'm having trouble generating a response right now. Could you please rephrase your question?",
+                    "error": False
+                }
+            
             return {
-                "answer": answer.strip(),
+                "answer": answer,
                 "error": False
             }
             
