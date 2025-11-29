@@ -604,7 +604,7 @@ def api_register():
             return jsonify({
                 'success': True,
                 'message': message,
-                'redirect': url_for('login_page')
+                'redirect': '/login'  # React route, not Flask endpoint
             })
         else:
             return jsonify({
@@ -3743,9 +3743,21 @@ def api_chatbot():
                 'error': 'Empty message'
             }), 400
         
-        # Verify chatbot is initialized
-        if not chatbot or not chatbot.health_check():
-            print("⚠️ Chatbot LLM not initialized - returning fallback")
+        # Verify chatbot is initialized - check both chatbot object AND llm
+        if not chatbot:
+            print("❌ Chatbot object not initialized")
+            fallback_response = "I apologize, but the AI chatbot is temporarily unavailable. Please try again in a moment or contact support if this persists."
+            return jsonify({
+                'success': False,
+                'message': fallback_response,
+                'response': fallback_response,
+                'answer': fallback_response,
+                'error': 'Chatbot not initialized'
+            }), 503
+        
+        # Check if LLM is available (more lenient check)
+        if not llm and not chatbot.llm:
+            print("❌ LLM not initialized - no API key")
             fallback_response = "I apologize, but the AI chatbot is temporarily unavailable. Please try again in a moment or contact support if this persists."
             return jsonify({
                 'success': False,
@@ -3754,6 +3766,8 @@ def api_chatbot():
                 'answer': fallback_response,
                 'error': 'LLM not initialized'
             }), 503
+        
+        print(f"✅ Chatbot ready - LLM: {chatbot.llm is not None}")
         
         # Get conversation history from request (optional)
         conversation_history = data.get('history', [])
