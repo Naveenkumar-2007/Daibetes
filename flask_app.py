@@ -488,23 +488,38 @@ def serve_assets(path):
     return send_from_directory('frontend/dist/assets', path)
 
 
+# React Router paths - serve index.html for client-side routing
+@app.route('/dashboard')
+@app.route('/predict')
+@app.route('/prediction/<path:path>')
+@app.route('/reports')
+@app.route('/settings')
+@app.route('/graphs/<path:path>')
+@app.route('/admin')
+@app.route('/login')
+@app.route('/register')
+@app.route('/forgot-password')
+def serve_react_routes(path=None):
+    """Serve React app for all client-side routes"""
+    return send_from_directory('frontend/dist', 'index.html')
+
+
 @app.route('/<path:path>')
 def serve_react_app(path):
     """Serve React app static files and handle SPA routing"""
-    # CRITICAL: Don't intercept API routes, Flask templates, or backend endpoints
-    api_prefixes = ['api/', 'predict', 'login', 'register', 'logout', 'user/', 'admin/', 
-                    'download_', 'health', 'report', 'reset_password', 'chatbot/', 'static/']
+    # Backend API prefixes that should NOT serve React
+    api_prefixes = ['api/', 'predict', 'user/', 'admin/', 'download_', 'health', 
+                    'report', 'reset_password', 'chatbot/', 'static/', 'vite.svg']
     
     # If path starts with any API prefix, let Flask handle it (don't serve React)
     if any(path.startswith(prefix) for prefix in api_prefixes):
-        # This will trigger a 404, letting the actual Flask route handle it
         from flask import abort
         abort(404)
     
     react_dir = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
     file_path = os.path.join(react_dir, path)
     
-    # Serve static assets directly (JS, CSS, images, SVG)
+    # Serve static files directly (JS, CSS, images, SVG, etc.)
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return send_from_directory(react_dir, path)
     
@@ -512,61 +527,41 @@ def serve_react_app(path):
     return send_from_directory('frontend/dist', 'index.html')
 
 
-@app.route('/login')
-def login_page():
-    """Render login page"""
-    if 'user_id' in session:
-        if session.get('role') == 'admin':
-            return redirect(url_for('admin_dashboard'))
-        return redirect(url_for('user_dashboard'))
-    return render_template(
-        'login.html',
-        google_client_id=google_client_id,
-        google_login_enabled=bool(google_client_id)
-    )
+# ------------------- OLD FLASK TEMPLATE ROUTES (DEPRECATED - React handles these now) -------------------
+# Keeping these for backward compatibility with direct API access, but React handles the UI
+
+@app.route('/user/login')
+def login_page_old():
+    """Old login endpoint - redirect to React"""
+    return redirect('/')
 
 
-@app.route('/register')
-def register_page():
-    """Render registration page"""
-    if 'user_id' in session:
-        return redirect(url_for('user_dashboard'))
-    return render_template('register.html')
+@app.route('/user/register')
+def register_page_old():
+    """Old register endpoint - redirect to React"""
+    return redirect('/')
 
 
-@app.route('/forgot-password')
-def forgot_password_page():
-    """Render forgot password page"""
-    if 'user_id' in session:
-        if session.get('role') == 'admin':
-            return redirect(url_for('admin_dashboard'))
-        return redirect(url_for('user_dashboard'))
-    return render_template('forgot_password.html')
+@app.route('/user/forgot-password')
+def forgot_password_page_old():
+    """Old forgot password endpoint - redirect to React"""
+    return redirect('/')
 
 
 @app.route('/reset-password')
 def reset_password_page():
-    """Render reset password form when token is provided"""
-    if 'user_id' in session:
-        if session.get('role') == 'admin':
-            return redirect(url_for('admin_dashboard'))
-        return redirect(url_for('user_dashboard'))
-
+    """Handle password reset with token"""
     token = request.args.get('token', '').strip()
-    token_valid = False
-    status_message = "Invalid or expired reset link"
-
+    
     if token:
-        token_valid, status_message, _ = validate_password_reset_token(token)
+        # Validate token
+        token_valid, message, _ = validate_password_reset_token(token)
         if token_valid:
-            status_message = "Enter a new password to secure your account."
-
-    return render_template(
-        'reset_password.html',
-        token=token,
-        token_valid=token_valid,
-        status_message=status_message
-    )
+            # Redirect to React app with token as query param
+            return redirect(f'/?reset_token={token}')
+    
+    # Invalid or missing token - redirect to home
+    return redirect('/')
 
 
 @app.route('/api/register', methods=['POST'])
@@ -3943,6 +3938,26 @@ def reset_chatbot_training_data():
             'success': False,
             'error': str(e)
         }), 500
+
+
+# ------------------- ERROR HANDLERS -------------------
+
+@app.errorhandler(404)
+def not_found_error(error):
+    """Handle 404 errors - serve React app for unknown routes"""
+    # If it's an API request, return JSON
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    
+    # For all other 404s, serve React app (SPA routing)
+    return send_from_directory('frontend/dist', 'index.html')
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 errors"""
+    print(f"❌ Internal Server Error: {error}")
+    return jsonify({'error': 'Internal server error'}), 500
 
 
 # ------------------- RUN APP -------------------
