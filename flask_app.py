@@ -55,7 +55,9 @@ from auth import (
 from chatbot_integrated import IntegratedChatbot
 
 # ------------------- FLASK APP SETUP -------------------
-app = Flask(__name__)
+app = Flask(__name__, 
+            static_folder='frontend/dist',
+            static_url_path='')
 app.config['SECRET_KEY'] = 'diabetes-predictor-secret-key-2025-change-in-production'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 
@@ -477,10 +479,13 @@ def generate_comparison_pdf(current_prediction, comparison_entry):
 @app.route('/')
 def home():
     """Serve React app"""
-    react_build = os.path.join(os.path.dirname(__file__), 'frontend', 'dist', 'index.html')
-    if os.path.exists(react_build):
-        return send_from_directory(os.path.join('frontend', 'dist'), 'index.html')
-    return jsonify({"error": "React build not found. Run 'npm run build' in frontend/"}), 500
+    return send_from_directory('frontend/dist', 'index.html')
+
+
+@app.route('/assets/<path:path>')
+def serve_assets(path):
+    """Serve React static assets (JS, CSS, images)"""
+    return send_from_directory('frontend/dist/assets', path)
 
 
 @app.route('/<path:path>')
@@ -499,16 +504,12 @@ def serve_react_app(path):
     react_dir = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
     file_path = os.path.join(react_dir, path)
     
-    # Serve static assets directly (JS, CSS, images)
+    # Serve static assets directly (JS, CSS, images, SVG)
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return send_from_directory(react_dir, path)
     
     # For all other routes (React Router), serve index.html
-    index_path = os.path.join(react_dir, 'index.html')
-    if os.path.exists(index_path):
-        return send_from_directory(react_dir, 'index.html')
-    
-    return jsonify({"error": "React build not found"}), 404
+    return send_from_directory('frontend/dist', 'index.html')
 
 
 @app.route('/login')
