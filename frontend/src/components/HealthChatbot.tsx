@@ -14,7 +14,7 @@ export default function HealthChatbot() {
     {
       id: '1',
       role: 'assistant',
-      content: "👋 Hi! I'm your **AI Health Assistant**.\n\nI can help you with:\n\n🩺 Understanding diabetes & health metrics\n📊 Analyzing your prediction results  \n💡 Personalized health recommendations\n❓ Answering your health questions\n\nWhat would you like to know?",
+      content: "Hello! 👋 I'm your **AI Health Assistant**.\n\nI'm here to help you with:\n\n**🩺 Health Information**\n• Understanding diabetes and related conditions\n• Explaining medical terms and test results\n• Interpreting your health metrics\n\n**💡 Personalized Guidance**\n• Diet and nutrition recommendations\n• Exercise and lifestyle tips\n• Prevention strategies\n\n**📊 Support**\n• Analyzing your prediction results\n• Answering health questions 24/7\n• Evidence-based medical information\n\nWhat would you like to know about your health today?",
       timestamp: new Date(),
     },
   ]);
@@ -81,11 +81,20 @@ export default function HealthChatbot() {
     setIsLoading(true);
 
     try {
+      // Prepare conversation history (last 6 messages for context)
+      const history = messages.slice(-6).map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
       const response = await fetch('/api/chatbot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ message: input.trim() }),
+        body: JSON.stringify({ 
+          message: input.trim(),
+          history: history  // Send conversation context
+        }),
       });
 
       const data = await response.json();

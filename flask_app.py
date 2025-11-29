@@ -104,7 +104,7 @@ else:
         llm = ChatGroq(
             model="openai/gpt-oss-120b",
             groq_api_key=groq_api_key,
-            temperature=0.4
+            temperature=0.7  # Higher temperature for more varied chatbot responses
         )
         print("✅ Groq LLM initialized successfully with openai/gpt-oss-120b")
     except Exception as e:
@@ -3719,7 +3719,7 @@ def serve_report(filename):
 def api_chatbot():
     """
     Main chatbot endpoint - frontend calls this
-    Uses integrated Groq LLM for instant AI responses
+    Uses integrated Groq LLM for instant AI responses with conversation history
     """
     try:
         data = request.get_json()
@@ -3740,8 +3740,11 @@ def api_chatbot():
                 'error': 'Empty message'
             }), 400
         
-        # Use integrated chatbot with Groq LLM
-        response = chatbot.ask_question(user_message)
+        # Get conversation history from request (optional)
+        conversation_history = data.get('history', [])
+        
+        # Use integrated chatbot with Groq LLM and conversation context
+        response = chatbot.ask_question(user_message, conversation_history=conversation_history)
         
         if response.get('error'):
             return jsonify({
@@ -3813,6 +3816,97 @@ def chatbot_health():
         }), 500
 
 
+# ------------------- ADMIN CHATBOT TRAINING ROUTES -------------------
+
+@app.route('/api/admin/chatbot/training', methods=['GET'])
+@login_required
+@admin_required
+def get_chatbot_training_data():
+    """Get current chatbot training data (admin only)"""
+    try:
+        training_data = chatbot.get_training_data()
+        return jsonify({
+            'success': True,
+            'data': training_data
+        }), 200
+    except Exception as e:
+        print(f"❌ Error getting training data: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/admin/chatbot/training', methods=['POST'])
+@login_required
+@admin_required
+def add_chatbot_training_data():
+    """Add new training data to chatbot (admin only)"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'training_data' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing training_data in request'
+            }), 400
+        
+        new_data = data.get('training_data', '').strip()
+        
+        if not new_data:
+            return jsonify({
+                'success': False,
+                'error': 'Training data cannot be empty'
+            }), 400
+        
+        success = chatbot.add_training_data(new_data)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Training data added successfully'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to add training data'
+            }), 500
+            
+    except Exception as e:
+        print(f"❌ Error adding training data: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/admin/chatbot/training', methods=['DELETE'])
+@login_required
+@admin_required
+def reset_chatbot_training_data():
+    """Reset chatbot training data (admin only)"""
+    try:
+        success = chatbot.reset_training_data()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Training data reset successfully'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to reset training data'
+            }), 500
+            
+    except Exception as e:
+        print(f"❌ Error resetting training data: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 # ------------------- RUN APP -------------------
 if __name__ == '__main__':
     print("\n" + "="*70)
@@ -3821,6 +3915,7 @@ if __name__ == '__main__':
     print(f"✅ Flask App: Ready")
     print(f"✅ ML Model: {'Loaded' if model else '❌ Not Loaded'}")
     print(f"✅ Groq AI: {'Connected' if llm else '❌ Not Connected'}")
+    print(f"✅ Chatbot Training: Ready")
     print("="*70 + "\n")
     
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
