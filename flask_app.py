@@ -834,12 +834,6 @@ def get_session():
 def diabetes_chat():
     """Diabetes health assistant chatbot endpoint using Groq LLM"""
     try:
-        if not llm:
-            return jsonify({
-                'success': False,
-                'message': 'AI assistant is currently unavailable. Please try again later.'
-            }), 503
-        
         data = request.get_json()
         user_message = data.get('message', '').strip()
         user_id = data.get('user_id', 'anonymous')
@@ -850,6 +844,17 @@ def diabetes_chat():
                 'success': False,
                 'message': 'Please provide a message.'
             }), 400
+        
+        # Check if LLM is available
+        if not llm:
+            print("⚠️ LLM not initialized - GROQ_API_KEY missing")
+            # Return a helpful fallback message
+            return jsonify({
+                'success': True,
+                'answer': f"👋 Hello {username}!\n\n⚠️ The AI chatbot is temporarily unavailable because the API key is not configured on the server.\n\n**For diabetes questions, please:**\n\n1. **Check your blood sugar regularly** - Normal fasting: 70-99 mg/dL\n2. **Maintain healthy diet** - Focus on vegetables, whole grains, lean proteins\n3. **Exercise regularly** - At least 150 minutes per week\n4. **Monitor your BMI** - Healthy range: 18.5-24.9\n5. **Consult your doctor** for personalized medical advice\n\n*Note: This is an automated response. The AI assistant will be back once the server configuration is updated.*"
+            })
+        
+        print(f"💬 Chat request from {username} ({user_id}): {user_message}")
         
         # Safety check for emergencies
         emergency_keywords = [

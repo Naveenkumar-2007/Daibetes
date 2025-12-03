@@ -54,6 +54,14 @@ echo "   - Threads: 8"
 echo "   - Timeout: 120s (reduced)"
 echo "   - Preload: disabled"
 
+# Check for critical environment variables
+if [ -z "$GROQ_API_KEY" ]; then
+    echo "⚠️  WARNING: GROQ_API_KEY not set - Chatbot will use fallback responses"
+    echo "   Set GROQ_API_KEY in Azure App Settings to enable AI chatbot"
+else
+    echo "✅ GROQ_API_KEY configured"
+fi
+
 # Start Gunicorn with optimized settings for Azure
 # Single worker for faster startup, more threads to handle concurrent requests
 exec gunicorn --bind=0.0.0.0:$PORT \
