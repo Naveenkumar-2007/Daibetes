@@ -1,0 +1,240 @@
+# Diabetes Health Information - Training Document
+
+## What is Diabetes?
+
+Diabetes is a chronic health condition that affects how your body turns food into energy. Most of the food you eat is broken down into sugar (also called glucose) and released into your bloodstream. When your blood sugar goes up, it signals your pancreas to release insulin.
+
+Insulin acts like a key to let the blood sugar into your body's cells for use as energy. With diabetes, your body doesn't make enough insulin or can't use it as well as it should. When there isn't enough insulin or cells stop responding to insulin, too much blood sugar stays in your bloodstream.
+
+## Types of Diabetes
+
+### Type 1 Diabetes
+Type 1 diabetes is thought to be caused by an autoimmune reaction that stops your body from making insulin. Approximately 5-10% of people who have diabetes have type 1. Symptoms often develop quickly and it's usually diagnosed in children, teens, and young adults.
+
+### Type 2 Diabetes
+With type 2 diabetes, your body doesn't use insulin well and can't keep blood sugar at normal levels. About 90-95% of people with diabetes have type 2. It develops over many years and is usually diagnosed in adults, though increasingly seen in children, teens, and young adults.
+
+### Gestational Diabetes
+Gestational diabetes develops in pregnant women who have never had diabetes. If you have gestational diabetes, your baby could be at higher risk for health problems. Gestational diabetes usually goes away after your baby is born but increases your risk for type 2 diabetes later in life.
+
+### Prediabetes
+In prediabetes, blood sugar levels are higher than normal but not high enough yet to be diagnosed as type 2 diabetes. Prediabetes raises your risk for type 2 diabetes, heart disease, and stroke.
+
+## Blood Sugar Levels
+
+### Normal Blood Sugar Ranges
+- Fasting (8 hours without eating): 70-99 mg/dL
+- 2 hours after eating: Less than 140 mg/dL
+- Random (any time of day): Less than 140 mg/dL
+- HbA1c (3-month average): Below 5.7%
+
+### Prediabetes Range
+- Fasting: 100-125 mg/dL
+- 2 hours after eating: 140-199 mg/dL
+- HbA1c: 5.7% to 6.4%
+
+### Diabetes Range
+- Fasting: 126 mg/dL or higher
+- 2 hours after eating: 200 mg/dL or higher
+- Random: 200 mg/dL or higher with symptoms
+- HbA1c: 6.5% or higher
+
+## Risk Factors
+
+### Type 2 Diabetes Risk Factors
+- Being overweight or obese (BMI over 25)
+- Age 45 or older
+- Family history of diabetes
+- Physical inactivity
+- Race/ethnicity (African American, Hispanic/Latino, American Indian, Asian American, Pacific Islander)
+- History of gestational diabetes
+- Polycystic ovary syndrome (PCOS)
+- High blood pressure (over 140/90)
+- Abnormal cholesterol levels
+
+### Type 1 Diabetes Risk Factors
+- Family history of type 1 diabetes
+- Certain genetic factors
+- Age (though it can appear at any age, peaks occur in children 4-7 years old and 10-14 years old)
+- Geography (incidence increases as you travel away from the equator)
+
+## Symptoms and Warning Signs
+
+### Common Symptoms of Diabetes
+- Urinating often, especially at night
+- Feeling very thirsty
+- Losing weight without trying
+- Feeling very hungry
+- Having blurry vision
+- Having numb or tingling hands or feet
+- Feeling very tired
+- Having very dry skin
+- Having sores that heal slowly
+- Having more infections than usual
+
+### Emergency Symptoms (Seek immediate medical help)
+- Blood sugar over 400 mg/dL
+- Extreme thirst
+- Frequent urination
+- Dry mouth and skin
+- Nausea or vomiting
+- Shortness of breath
+- Fruity-smelling breath
+- Confusion or difficulty staying awake
+
+## Prevention and Management
+
+### Lifestyle Changes to Prevent or Manage Diabetes
+1. **Healthy Eating**: Focus on vegetables, fruits, whole grains, lean proteins, and healthy fats
+2. **Regular Physical Activity**: Aim for at least 150 minutes of moderate exercise per week
+3. **Weight Management**: Losing 5-7% of body weight can significantly reduce diabetes risk
+4. **Stress Management**: Practice relaxation techniques, meditation, or yoga
+5. **Adequate Sleep**: Aim for 7-9 hours of quality sleep per night
+6. **Avoid Tobacco**: Smoking increases diabetes complications
+
+### Recommended Foods
+- Non-starchy vegetables (broccoli, carrots, peppers, tomatoes)
+- Whole grains (brown rice, whole wheat bread, quinoa, oats)
+- Lean proteins (chicken, fish, tofu, beans, lentils)
+- Healthy fats (avocado, nuts, seeds, olive oil)
+- Fruits in moderation (berries, apples, oranges)
+- Low-fat or fat-free dairy
+
+### Foods to Limit or Avoid
+- Sugary drinks (soda, sweet tea, fruit juice)
+- Refined carbohydrates (white bread, white rice, pastries)
+- Processed foods high in salt
+- Fried foods
+- Foods high in saturated and trans fats
+- Excessive alcohol
+
+## BMI and Diabetes Risk
+
+Body Mass Index (BMI) is a measure of body fat based on height and weight. Higher BMI is strongly associated with increased diabetes risk.
+
+### BMI Categories
+- Underweight: BMI less than 18.5
+- Normal weight: BMI 18.5-24.9
+- Overweight: BMI 25-29.9 (Increased diabetes risk)
+- Obese Class I: BMI 30-34.9 (High diabetes risk)
+- Obese Class II: BMI 35-39.9 (Very high diabetes risk)
+- Obese Class III: BMI 40 or higher (Extremely high diabetes risk)
+
+A BMI over 25 significantly increases the risk of developing type 2 diabetes. Even modest weight loss can help reduce this risk.
+
+## Insulin Levels
+
+Insulin is a hormone produced by the pancreas that regulates blood sugar levels.
+
+### Normal Fasting Insulin Levels
+- Normal: 2-20 μU/mL (microunits per milliliter)
+- Optimal: 5-10 μU/mL
+
+### Insulin Resistance
+When cells don't respond properly to insulin, the pancreas produces more insulin to compensate. High insulin levels (hyperinsulinemia) can indicate insulin resistance, a precursor to type 2 diabetes.
+
+### Signs of Insulin Resistance
+- High blood insulin levels
+- Difficulty losing weight
+- Increased belly fat
+- High blood pressure
+- High triglycerides
+- Low HDL cholesterol
+- Darkened skin patches (acanthosis nigricans)
+
+## Blood Pressure and Diabetes
+
+High blood pressure (hypertension) often occurs with diabetes and increases the risk of heart disease, stroke, and kidney disease.
+
+### Blood Pressure Targets for People with Diabetes
+- Ideal: Below 130/80 mmHg
+- Normal: Less than 120/80 mmHg
+- Elevated: 120-129 systolic and less than 80 diastolic
+- High (Stage 1): 130-139 systolic or 80-89 diastolic
+- High (Stage 2): 140/90 mmHg or higher
+
+People with diabetes should monitor blood pressure regularly and work with their healthcare provider to maintain healthy levels.
+
+## Testing and Diagnosis
+
+### Common Tests for Diabetes
+1. **HbA1c Test**: Measures average blood sugar over 2-3 months. Diabetes diagnosed at 6.5% or higher.
+2. **Fasting Plasma Glucose (FPG)**: Measures blood sugar after 8-hour fast. Diabetes diagnosed at 126 mg/dL or higher.
+3. **Oral Glucose Tolerance Test (OGTT)**: Measures blood sugar before and 2 hours after drinking glucose solution. Diabetes diagnosed at 200 mg/dL or higher.
+4. **Random Plasma Glucose Test**: Any time testing. Diabetes diagnosed at 200 mg/dL or higher with symptoms.
+
+### Monitoring for People with Diabetes
+- Regular blood glucose monitoring (frequency depends on treatment plan)
+- HbA1c testing every 3-6 months
+- Annual comprehensive eye exam
+- Annual foot exam
+- Regular kidney function tests
+- Annual cholesterol screening
+- Blood pressure checks at each medical visit
+
+## Complications and Long-term Health
+
+### Potential Diabetes Complications
+- **Cardiovascular disease**: Heart disease and stroke
+- **Nerve damage (neuropathy)**: Especially in legs and feet
+- **Kidney damage (nephropathy)**: Can lead to kidney failure
+- **Eye damage (retinopathy)**: Can lead to blindness
+- **Foot damage**: Poor circulation and nerve damage
+- **Skin conditions**: Bacterial and fungal infections
+- **Hearing impairment**: More common in people with diabetes
+- **Alzheimer's disease**: Type 2 diabetes may increase the risk
+- **Depression**: Common in people with diabetes
+
+### Prevention of Complications
+- Maintain blood sugar in target range
+- Control blood pressure and cholesterol
+- Regular medical check-ups
+- Protect your feet and check them daily
+- Take medications as prescribed
+- Don't smoke
+- Manage stress
+- Get regular dental care
+
+## When to See a Doctor
+
+### Schedule a Doctor Appointment If:
+- You experience any symptoms of diabetes
+- Your blood sugar is consistently outside target range
+- You have questions about managing your diabetes
+- You're planning to become pregnant
+- You need help adjusting medications
+- You're experiencing side effects from diabetes medications
+
+### Seek Immediate Medical Care If:
+- Blood sugar is over 400 mg/dL
+- Blood sugar is below 70 mg/dL and not improving
+- You have symptoms of ketoacidosis (fruity breath, nausea, vomiting, confusion)
+- You have signs of severe hypoglycemia (confusion, seizures, loss of consciousness)
+- You have chest pain or shortness of breath
+- You have severe abdominal pain
+
+## Medication and Treatment
+
+### Common Diabetes Medications
+**Note: This is educational information only. Never start, stop, or change medications without consulting your healthcare provider.**
+
+- **Metformin**: Usually first-line treatment for type 2 diabetes
+- **Sulfonylureas**: Stimulate pancreas to release more insulin
+- **DPP-4 inhibitors**: Help improve blood sugar levels
+- **GLP-1 receptor agonists**: Slow digestion and help pancreas produce insulin
+- **SGLT2 inhibitors**: Help kidneys remove sugar through urine
+- **Insulin**: Required for type 1 diabetes, sometimes used for type 2
+
+### Insulin Therapy
+People with type 1 diabetes require insulin therapy. Some people with type 2 diabetes also need insulin. Types of insulin include:
+- Rapid-acting insulin
+- Short-acting insulin
+- Intermediate-acting insulin
+- Long-acting insulin
+- Ultra-long-acting insulin
+
+## Important Medical Disclaimer
+
+This information is for educational purposes only and is not intended to replace professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding diabetes or any other medical condition. Never disregard professional medical advice or delay in seeking it because of something you have read here.
+
+If you think you may have a medical emergency, call your doctor or emergency services immediately.

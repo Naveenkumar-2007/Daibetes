@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, FileText, TrendingUp, Activity, Bot, Trash2 } from 'lucide-react'
+import { Users, FileText, TrendingUp, Activity, Trash2, Bot } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../lib/auth'
 import { useNavigate, Link } from 'react-router-dom'
@@ -27,6 +27,7 @@ interface Stats {
 export default function AdminPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<'users' | 'chatbot'>('users')
   const [users, setUsers] = useState<User[]>([])
   const [stats, setStats] = useState<Stats>({
     total_users: 0,
@@ -35,7 +36,6 @@ export default function AdminPage() {
     positive_predictions: 0
   })
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'users' | 'chatbot'>('users')
 
   useEffect(() => {
     // Check if user is admin
@@ -122,39 +122,48 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-4 mt-4 border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`pb-3 px-2 font-medium text-sm transition-colors relative ${
-                activeTab === 'users'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Users className="w-4 h-4 inline mr-2" />
-              Users ({users.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('chatbot')}
-              className={`pb-3 px-2 font-medium text-sm transition-colors relative ${
-                activeTab === 'chatbot'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Bot className="w-4 h-4 inline mr-2" />
-              AI Chatbot
-            </button>
-          </div>
+
         </div>
       </header>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-24">
+        {/* Tab Navigation */}
+        <div className="mb-6 border-b border-gray-200">
+          <div className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'users'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                <span>User Management</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('chatbot')}
+              className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'chatbot'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Bot className="w-5 h-5" />
+                <span>Chatbot Training</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Conditional Content Based on Active Tab */}
         {activeTab === 'users' && (
           <>
-            {/* Stats Cards */}
+        {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -272,14 +281,12 @@ export default function AdminPage() {
           </>
         )}
 
+        {/* Chatbot Training Tab */}
         {activeTab === 'chatbot' && (
-          <div className="mt-6">
-            <ChatbotTrainingPage />
-          </div>
+          <ChatbotTrainingPage />
         )}
       </main>
 
-      {/* Old Upload Modal Removed - Not needed for integrated chatbot */}
       <MobileNav />
     </div>
   )

@@ -1,0 +1,67 @@
+# Example Diabetes Knowledge Document
+
+## What is Diabetes?
+
+Diabetes is a chronic condition that affects how your body processes blood sugar (glucose). Glucose is an important source of energy for the cells that make up your muscles and tissues, and it's your brain's main source of fuel.
+
+## Types of Diabetes
+
+### Type 1 Diabetes
+Type 1 diabetes is an autoimmune condition where your pancreas produces little to no insulin. It usually develops in childhood or adolescence but can occur at any age.
+
+### Type 2 Diabetes
+Type 2 diabetes is the most common form. Your body doesn't use insulin properly (insulin resistance), and your pancreas can't make enough insulin to overcome this resistance.
+
+### Gestational Diabetes
+This type occurs during pregnancy and usually resolves after delivery, but increases risk of Type 2 diabetes later.
+
+## Risk Factors for Type 2 Diabetes
+
+- Being overweight or obese
+- Physical inactivity
+- Family history of diabetes
+- Age (risk increases after 45)
+- High blood pressure
+- Abnormal cholesterol levels
+- History of gestational diabetes
+
+## Blood Sugar Levels
+
+### Normal Ranges
+- Fasting blood sugar: 70-99 mg/dL
+- After meals (2 hours): Less than 140 mg/dL
+- HbA1c: Below 5.7%
+
+### Prediabetes
+- Fasting blood sugar: 100-125 mg/dL
+- HbA1c: 5.7% to 6.4%
+
+### Diabetes
+- Fasting blood sugar: 126 mg/dL or higher
+- HbA1c: 6.5% or higher
+
+## Prevention Tips
+
+1. **Maintain healthy weight**: Aim for a BMI between 18.5-24.9
+2. **Stay physically active**: At least 150 minutes of moderate exercise per week
+3. **Eat a balanced diet**: Focus on whole grains, vegetables, lean proteins
+4. **Limit added sugars**: Reduce consumption of sugary drinks and snacks
+5. **Regular checkups**: Get screened for diabetes, especially if at risk
+
+## When to See a Doctor
+
+Consult your healthcare provider if you experience:
+- Increased thirst and urination
+- Unexplained weight loss
+- Fatigue
+- Blurred vision
+- Slow-healing sores
+- Frequent infections
+
+## Important Note
+
+This information is for educational purposes only. Always consult your doctor for personalized medical advice. Do not use this information to diagnose or treat any health condition.
+
+---
+
+**Remember**: Diabetes management requires regular medical supervision. Work closely with your healthcare team to develop a personalized treatment plan.

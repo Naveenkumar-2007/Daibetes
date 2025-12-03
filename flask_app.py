@@ -51,9 +51,6 @@ from auth import (
     get_user_predictions, get_user_statistics, change_password, update_user_profile
 )
 
-# Import integrated chatbot
-from chatbot_integrated import IntegratedChatbot
-
 # ------------------- FLASK APP SETUP -------------------
 app = Flask(__name__, 
             static_folder='frontend/dist',
@@ -104,18 +101,14 @@ if not groq_api_key:
 else:
     try:
         llm = ChatGroq(
-            model="openai/gpt-oss-120b",
+            model="openai/gpt-oss-20b",
             groq_api_key=groq_api_key,
-            temperature=0.7  # Higher temperature for more varied chatbot responses
+            temperature=0.3
         )
-        print("✅ Groq LLM initialized successfully with openai/gpt-oss-120b")
+        print("✅ Groq LLM initialized successfully with openai/gpt-oss-20b")
     except Exception as e:
         print(f"❌ Error initializing Groq LLM: {e}")
         llm = None
-
-# ------------------- INITIALIZE INTEGRATED CHATBOT -------------------
-chatbot = IntegratedChatbot(llm=llm)
-print(f"✅ Integrated Chatbot: {'Ready' if chatbot.health_check() else 'Limited Mode (No LLM)'}")
 
 FEATURE_INDEX_MAP = {
     'Pregnancies': 0,
@@ -509,7 +502,7 @@ def serve_react_app(path):
     """Serve React app static files and handle SPA routing"""
     # Backend API prefixes that should NOT serve React
     api_prefixes = ['api/', 'predict', 'user/', 'admin/', 'download_', 'health', 
-                    'report', 'reset_password', 'chatbot/', 'static/', 'vite.svg']
+                    'report', 'reset_password', 'static/', 'vite.svg']
     
     # If path starts with any API prefix, let Flask handle it (don't serve React)
     if any(path.startswith(prefix) for prefix in api_prefixes):
@@ -834,6 +827,121 @@ def get_session():
         return jsonify({
             'success': False,
             'error': str(e)
+        }), 500
+
+
+@app.route('/api/diabetes-chat', methods=['POST'])
+def diabetes_chat():
+    """Diabetes health assistant chatbot endpoint using Groq LLM"""
+    try:
+        if not llm:
+            return jsonify({
+                'success': False,
+                'message': 'AI assistant is currently unavailable. Please try again later.'
+            }), 503
+        
+        data = request.get_json()
+        user_message = data.get('message', '').strip()
+        user_id = data.get('user_id', 'anonymous')
+        username = data.get('username', 'Guest')
+        
+        if not user_message:
+            return jsonify({
+                'success': False,
+                'message': 'Please provide a message.'
+            }), 400
+        
+        # Safety check for emergencies
+        emergency_keywords = [
+            'chest pain', 'can\'t breathe', 'breathing difficulty', 'severe pain',
+            'unconscious', 'fainting', 'seizure', 'stroke', 'heart attack',
+            'bleeding heavily', 'suicide', 'overdose'
+        ]
+        
+        message_lower = user_message.lower()
+        if any(keyword in message_lower for keyword in emergency_keywords):
+            return jsonify({
+                'success': True,
+                'answer': '🚨 **EMERGENCY DETECTED** 🚨\n\nThis sounds like a medical emergency. Please:\n\n1. **Call emergency services immediately** (911 in US, 112 in India)\n2. **Go to the nearest hospital emergency room**\n3. **Do not delay for any reason**\n\nI\'m an AI assistant and cannot provide emergency medical care. Your safety is the top priority!'
+            })
+        
+        # Check for medication change requests
+        med_keywords = ['stop taking', 'stop my', 'quit medication', 'reduce dose', 'increase dose', 'change medication']
+        if any(keyword in message_lower for keyword in med_keywords):
+            return jsonify({
+                'success': True,
+                'answer': '⚠️ **Important Medical Notice**\n\nI cannot advise you to change, stop, or adjust any medications. This must be done under the supervision of your healthcare provider.\n\n**Please consult your doctor before:**\n- Stopping any medication\n- Changing doses\n- Starting new medications\n- Switching medications\n\nYour doctor knows your full medical history and can provide safe, personalized guidance.\n\n*For general diabetes information, feel free to ask other questions!*'
+            })
+        
+        # Load training documents and search for relevant context
+        training_context = ""
+        try:
+            docs = load_training_docs()
+            if docs:
+                # Simple keyword search across all chunks
+                relevant_chunks = []
+                search_terms = user_message.lower().split()
+                
+                for doc in docs:
+                    for chunk in doc.get('chunks', []):
+                        chunk_lower = chunk.lower()
+                        # Score based on keyword matches
+                        matches = sum(1 for term in search_terms if term in chunk_lower)
+                        if matches > 0:
+                            relevant_chunks.append((matches, chunk))
+                
+                # Sort by relevance and take top 3
+                relevant_chunks.sort(reverse=True, key=lambda x: x[0])
+                top_chunks = [chunk for _, chunk in relevant_chunks[:3]]
+                
+                if top_chunks:
+                    training_context = "\n\nRelevant information from training documents:\n" + "\n---\n".join(top_chunks)
+        except Exception as e:
+            print(f"⚠️ Error loading training docs: {e}")
+        
+        # Create diabetes health assistant prompt
+        system_prompt = """You are a knowledgeable diabetes health assistant. Your role is to:
+
+1. Provide accurate, evidence-based information about diabetes, blood sugar management, diet, exercise, and general health
+2. Answer questions clearly and compassionately
+3. Encourage users to consult healthcare providers for personalized medical advice
+4. Never diagnose conditions or prescribe medications
+5. Focus on education, prevention, and healthy lifestyle guidance
+6. Use information from training documents when available to provide accurate answers
+
+Always include a disclaimer that you're an AI assistant and users should consult healthcare professionals for medical decisions.
+
+Keep responses helpful, accurate, and encouraging. Use simple language and provide practical tips when appropriate."""
+        
+        user_context = f"User: {username} (ID: {user_id})"
+        
+        # Create chat prompt with training context
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            ("human", f"{user_context}\n\nQuestion: {user_message}{training_context}")
+        ])
+        
+        # Get LLM response
+        chain = prompt | llm
+        response = chain.invoke({})
+        answer = response.content
+        
+        # Add disclaimer
+        disclaimer = "\n\n---\n*💡 I'm an AI assistant providing general health information. Always consult your healthcare provider for personalized medical advice.*"
+        final_answer = answer + disclaimer
+        
+        return jsonify({
+            'success': True,
+            'answer': final_answer
+        })
+        
+    except Exception as e:
+        print(f"❌ Diabetes chat error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': 'Sorry, I encountered an error processing your request. Please try again.'
         }), 500
 
 
@@ -1326,6 +1434,233 @@ def get_admin_stats():
         return jsonify({
             'success': False,
             'error': str(e)
+        }), 500
+
+
+# ------------------- CHATBOT TRAINING ROUTES -------------------
+
+# Training documents storage
+TRAINING_DOCS_FILE = os.path.join(app.root_path, 'chatbot_training_docs.json')
+
+def load_training_docs():
+    """Load training documents from JSON file"""
+    if os.path.exists(TRAINING_DOCS_FILE):
+        with open(TRAINING_DOCS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return []
+
+def save_training_docs(docs):
+    """Save training documents to JSON file"""
+    with open(TRAINING_DOCS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(docs, f, indent=2, ensure_ascii=False)
+
+def extract_text_from_file(file):
+    """Extract text from uploaded file (PDF, TXT, DOC, etc.)"""
+    filename = file.filename.lower()
+    
+    if filename.endswith('.txt') or filename.endswith('.md'):
+        return file.read().decode('utf-8', errors='ignore')
+    
+    elif filename.endswith('.pdf'):
+        try:
+            import PyPDF2
+            from io import BytesIO
+            pdf_reader = PyPDF2.PdfReader(BytesIO(file.read()))
+            text = []
+            for page in pdf_reader.pages:
+                text.append(page.extract_text())
+            return '\n\n'.join(text)
+        except ImportError:
+            # Fallback if PyPDF2 not installed
+            return file.read().decode('utf-8', errors='ignore')
+    
+    elif filename.endswith('.doc') or filename.endswith('.docx'):
+        try:
+            import docx
+            from io import BytesIO
+            doc = docx.Document(BytesIO(file.read()))
+            return '\n\n'.join([paragraph.text for paragraph in doc.paragraphs])
+        except ImportError:
+            return file.read().decode('utf-8', errors='ignore')
+    
+    else:
+        # Default: try to decode as text
+        return file.read().decode('utf-8', errors='ignore')
+
+def chunk_text(text, chunk_size=800, overlap=200):
+    """Split text into overlapping chunks"""
+    chunks = []
+    start = 0
+    text_length = len(text)
+    
+    while start < text_length:
+        end = start + chunk_size
+        chunk = text[start:end]
+        
+        if chunk.strip():
+            chunks.append(chunk.strip())
+        
+        start += (chunk_size - overlap)
+    
+    return chunks
+
+@app.route('/api/admin/chatbot/documents', methods=['GET'])
+@login_required
+@admin_required
+def get_training_documents():
+    """Get list of all training documents"""
+    try:
+        docs = load_training_docs()
+        return jsonify({
+            'success': True,
+            'documents': docs
+        })
+    except Exception as e:
+        print(f"❌ Error loading documents: {e}")
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@app.route('/api/admin/chatbot/upload', methods=['POST'])
+@login_required
+@admin_required
+def upload_training_documents():
+    """Upload and process training documents"""
+    try:
+        print("📤 Chatbot upload request received")
+        print(f"📋 Request files: {request.files}")
+        print(f"📋 Request form: {request.form}")
+        
+        if 'files' not in request.files:
+            print("❌ No 'files' in request.files")
+            return jsonify({
+                'success': False,
+                'message': 'No files provided'
+            }), 400
+        
+        files = request.files.getlist('files')
+        print(f"📁 Files received: {len(files)}")
+        
+        if not files or len(files) == 0:
+            print("❌ Files list is empty")
+            return jsonify({
+                'success': False,
+                'message': 'No files selected'
+            }), 400
+        
+        # Load existing documents
+        docs = load_training_docs()
+        print(f"📚 Existing documents: {len(docs)}")
+        
+        processed_count = 0
+        total_chunks = 0
+        errors = []
+        
+        for file in files:
+            print(f"📄 Processing file: {file.filename}")
+            
+            if file.filename == '':
+                print(f"⚠️ Empty filename, skipping")
+                continue
+            
+            try:
+                # Extract text from file
+                print(f"📖 Extracting text from {file.filename}")
+                text_content = extract_text_from_file(file)
+                print(f"✅ Extracted {len(text_content)} characters")
+                
+                # Chunk the text
+                chunks = chunk_text(text_content)
+                print(f"✂️ Created {len(chunks)} chunks")
+                
+                if not chunks:
+                    print(f"⚠️ No chunks created, skipping")
+                    continue
+                
+                # Create document record
+                doc_id = f"doc_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+                file_type = file.filename.split('.')[-1].lower()
+                
+                doc = {
+                    'id': doc_id,
+                    'filename': file.filename,
+                    'file_type': file_type,
+                    'content_preview': text_content[:200] + '...' if len(text_content) > 200 else text_content,
+                    'upload_date': get_ist_now().isoformat(),
+                    'chunk_count': len(chunks),
+                    'chunks': chunks  # Store chunks for chatbot to use
+                }
+                
+                docs.append(doc)
+                processed_count += 1
+                total_chunks += len(chunks)
+                print(f"✅ Successfully processed {file.filename}")
+                
+            except Exception as e:
+                error_msg = f"Error processing {file.filename}: {str(e)}"
+                print(f"❌ {error_msg}")
+                errors.append(error_msg)
+                import traceback
+                traceback.print_exc()
+                continue
+        
+        # Save updated documents
+        print(f"💾 Saving {len(docs)} documents to {TRAINING_DOCS_FILE}")
+        save_training_docs(docs)
+        print(f"✅ Documents saved successfully")
+        
+        result = {
+            'success': True,
+            'message': f'Uploaded {processed_count} file(s)',
+            'processed': processed_count,
+            'total_chunks': total_chunks
+        }
+        
+        if errors:
+            result['errors'] = errors
+        
+        print(f"📤 Sending response: {result}")
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"❌ Upload error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@app.route('/api/admin/chatbot/documents/<doc_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_training_document(doc_id):
+    """Delete a training document"""
+    try:
+        docs = load_training_docs()
+        
+        # Filter out the document to delete
+        updated_docs = [doc for doc in docs if doc['id'] != doc_id]
+        
+        if len(updated_docs) == len(docs):
+            return jsonify({
+                'success': False,
+                'message': 'Document not found'
+            }), 404
+        
+        save_training_docs(updated_docs)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Document deleted successfully'
+        })
+        
+    except Exception as e:
+        print(f"❌ Delete error: {e}")
+        return jsonify({
+            'success': False,
+            'message': str(e)
         }), 500
 
 
@@ -3709,271 +4044,6 @@ def serve_report(filename):
         }), 404
 
 
-# ------------------- CHATBOT ROUTES -------------------
-
-@app.route('/api/chatbot', methods=['POST'])
-def api_chatbot():
-    """
-    Main chatbot endpoint - frontend calls this
-    Uses integrated Groq LLM for instant AI responses with conversation history
-    """
-    try:
-        data = request.get_json()
-        
-        # Log request for production debugging
-        print(f"🤖 Chatbot request received: {data.get('message', '')[:50] if data else 'No data'}...")
-        
-        if not data or 'message' not in data:
-            return jsonify({
-                'success': False,
-                'message': 'Please provide a message.',
-                'response': 'Please provide a message.',
-                'answer': 'Please provide a message.',
-                'error': 'Missing message in request'
-            }), 400
-        
-        user_message = data.get('message', '').strip()
-        
-        if not user_message:
-            return jsonify({
-                'success': False,
-                'message': 'Please enter a question.',
-                'response': 'Please enter a question.',
-                'answer': 'Please enter a question.',
-                'error': 'Empty message'
-            }), 400
-        
-        # Verify chatbot is initialized - check both chatbot object AND llm
-        if not chatbot:
-            print("❌ Chatbot object not initialized")
-            fallback_response = "I apologize, but the AI chatbot is temporarily unavailable. Please try again in a moment or contact support if this persists."
-            return jsonify({
-                'success': False,
-                'message': fallback_response,
-                'response': fallback_response,
-                'answer': fallback_response,
-                'error': 'Chatbot not initialized'
-            }), 503
-        
-        # Log API key and LLM status for debugging
-        groq_key_status = "SET" if os.getenv("GROQ_API_KEY") else "NOT SET"
-        print(f"🔑 GROQ_API_KEY status: {groq_key_status}")
-        print(f"🤖 Chatbot object: {chatbot is not None}")
-        print(f"🧠 Chatbot.llm: {chatbot.llm is not None if chatbot else 'N/A'}")
-        print(f"🧠 Global llm: {llm is not None}")
-        
-        # Check if LLM is available (more lenient check)
-        if not llm and not chatbot.llm:
-            print("❌ LLM not initialized - no API key or initialization failed")
-            print(f"   GROQ_API_KEY: {groq_key_status}")
-            fallback_response = "I apologize, but the AI chatbot is temporarily unavailable. Please try again in a moment or contact support if this persists."
-            return jsonify({
-                'success': False,
-                'message': fallback_response,
-                'response': fallback_response,
-                'answer': fallback_response,
-                'error': 'LLM not initialized - API key missing or invalid'
-            }), 503
-        
-        print(f"✅ Chatbot ready - LLM: {chatbot.llm is not None}")
-        
-        # Get conversation history from request (optional)
-        conversation_history = data.get('history', [])
-        print(f"📜 History length: {len(conversation_history)} messages")
-        
-        # Use integrated chatbot with Groq LLM and conversation context
-        try:
-            response = chatbot.ask_question(user_message, conversation_history=conversation_history)
-            print(f"✅ Chatbot response generated: {len(response.get('answer', ''))} chars")
-        except Exception as chatbot_error:
-            print(f"❌ Chatbot.ask_question error: {chatbot_error}")
-            import traceback
-            traceback.print_exc()
-            return jsonify({
-                'success': False,
-                'message': 'An error occurred while processing your message. Please try again.',
-                'response': 'An error occurred while processing your message. Please try again.',
-                'answer': 'An error occurred while processing your message. Please try again.',
-                'error': f'Chatbot execution error: {str(chatbot_error)}'
-            }), 500
-        
-        if response.get('error'):
-            error_message = response.get('answer', 'An error occurred')
-            print(f"⚠️ Chatbot returned error: {error_message}")
-            return jsonify({
-                'success': False,
-                'message': error_message,
-                'response': error_message,
-                'answer': error_message,
-                'error': 'Chatbot processing error'
-            }), 500
-        
-        answer_text = response.get('answer', '')
-        
-        # Ensure response is not empty
-        if not answer_text or len(answer_text.strip()) < 10:
-            print("⚠️ Empty or too short response, using fallback")
-            answer_text = "I apologize, but I'm having trouble formulating a response. Could you please rephrase your question or try asking something different?"
-        
-        return jsonify({
-            'success': True,
-            'response': answer_text,
-            'message': answer_text,
-            'answer': answer_text
-        }), 200
-        
-    except Exception as e:
-        print(f"❌ Chatbot API error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        error_response = 'Sorry, I encountered an error processing your request. Please try again.'
-        return jsonify({
-            'success': False,
-            'message': error_response,
-            'response': error_response,
-            'answer': error_response,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/chatbot/history', methods=['GET'])
-def api_chatbot_history():
-    """Get chat history for current user"""
-    try:
-        # For now, return empty history (can be enhanced to store in Firebase)
-        return jsonify({
-            'success': True,
-            'history': []
-        }), 200
-    except Exception as e:
-        print(f"❌ Chat history error: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'history': []
-        }), 500
-
-
-@app.route('/chatbot/ask', methods=['POST'])
-def chatbot_ask():
-    """
-    Legacy chatbot endpoint - redirects to /api/chatbot
-    """
-    return api_chatbot()
-
-
-@app.route('/chatbot/health', methods=['GET'])
-def chatbot_health():
-    """Check if integrated chatbot is ready"""
-    try:
-        is_healthy = chatbot.health_check()
-        
-        return jsonify({
-            'status': 'healthy' if is_healthy else 'limited',
-            'message': 'Chatbot ready with Groq AI' if is_healthy else 'Chatbot ready (basic mode)',
-            'llm_configured': is_healthy,
-            'model': 'groq/mixtral-8x7b-32768' if is_healthy else 'none'
-        }), 200
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e),
-            'llm_configured': False
-        }), 500
-
-
-# ------------------- ADMIN CHATBOT TRAINING ROUTES -------------------
-
-@app.route('/api/admin/chatbot/training', methods=['GET'])
-@login_required
-@admin_required
-def get_chatbot_training_data():
-    """Get current chatbot training data (admin only)"""
-    try:
-        training_data = chatbot.get_training_data()
-        return jsonify({
-            'success': True,
-            'data': training_data
-        }), 200
-    except Exception as e:
-        print(f"❌ Error getting training data: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/admin/chatbot/training', methods=['POST'])
-@login_required
-@admin_required
-def add_chatbot_training_data():
-    """Add new training data to chatbot (admin only)"""
-    try:
-        data = request.get_json()
-        
-        if not data or 'training_data' not in data:
-            return jsonify({
-                'success': False,
-                'error': 'Missing training_data in request'
-            }), 400
-        
-        new_data = data.get('training_data', '').strip()
-        
-        if not new_data:
-            return jsonify({
-                'success': False,
-                'error': 'Training data cannot be empty'
-            }), 400
-        
-        success = chatbot.add_training_data(new_data)
-        
-        if success:
-            return jsonify({
-                'success': True,
-                'message': 'Training data added successfully'
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to add training data'
-            }), 500
-            
-    except Exception as e:
-        print(f"❌ Error adding training data: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/admin/chatbot/training', methods=['DELETE'])
-@login_required
-@admin_required
-def reset_chatbot_training_data():
-    """Reset chatbot training data (admin only)"""
-    try:
-        success = chatbot.reset_training_data()
-        
-        if success:
-            return jsonify({
-                'success': True,
-                'message': 'Training data reset successfully'
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to reset training data'
-            }), 500
-            
-    except Exception as e:
-        print(f"❌ Error resetting training data: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
 # ------------------- ERROR HANDLERS -------------------
 
 @app.errorhandler(404)
@@ -4002,7 +4072,6 @@ if __name__ == '__main__':
     print(f"✅ Flask App: Ready")
     print(f"✅ ML Model: {'Loaded' if model else '❌ Not Loaded'}")
     print(f"✅ Groq AI: {'Connected' if llm else '❌ Not Connected'}")
-    print(f"✅ Chatbot Training: Ready")
     print("="*70 + "\n")
     
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)

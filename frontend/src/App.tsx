@@ -11,7 +11,7 @@ import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/SettingsPage'
 import GraphsPage from './pages/GraphsPage'
 import AdminPage from './pages/AdminPage'
-import HealthChatbot from './components/HealthChatbot'
+import DiabetesChatbot from './components/DiabetesChatbot'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -52,8 +52,8 @@ function App() {
     <Router>
       <AuthProvider>
         <AppRoutes />
-        {/* AI Health Chatbot - Available on all pages */}
-        <HealthChatbot />
+        {/* Diabetes AI Chatbot - Available on all pages */}
+        <DiabetesChatbot />
       </AuthProvider>
     </Router>
   )
